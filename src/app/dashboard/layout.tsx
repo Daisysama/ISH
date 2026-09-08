@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { logoutAction } from '@/app/actions/auth'
@@ -17,15 +16,12 @@ export default async function DashboardLayout({
   return (
     <>
       <header className="app-header">
-        <Link href="/dashboard" className="brand">
+        <div className="brand">
           <div className="brandmark">ISH</div>
           <p className="brand-name">伊始</p>
-        </Link>
+        </div>
 
         <div className="app-user">
-          <Link href="/dashboard/new" className="btn btn-ghost">
-            发愿
-          </Link>
           <span className="avatar">{user.displayName.slice(0, 1)}</span>
           <div>
             <div>{user.displayName}</div>

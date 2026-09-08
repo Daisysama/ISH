@@ -7,9 +7,13 @@ out/
 next-env.d.ts
 
 # 环境变量（含密钥，绝不提交）
-.env
-.env.local
-.env*.local
+.env*
+!.env.example
+
+# 私钥 / 证书私钥
+*.pem
+*.key
+*.pfx
 
 # 本地 PostgreSQL
 .pgdata/

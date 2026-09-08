@@ -1,0 +1,23 @@
+[Unit]
+Description=ISH web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ish
+Group=ish
+WorkingDirectory=/opt/ish
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/ish/.env
+ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3000
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/ish
+
+[Install]
+WantedBy=multi-user.target

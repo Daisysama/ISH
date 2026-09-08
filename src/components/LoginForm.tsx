@@ -64,12 +64,6 @@ export function LoginForm({ initialEmail }: { initialEmail?: string }) {
       <p className="auth-switch">
         还没有账号？<Link href="/register">注册一个</Link>
       </p>
-
-      {/* 验证通过之后是一次整页跳转，跨页面的动画做不了。所以「离开」这一半
-          在这里用一层和背景同色的幕布收尾 —— 同色是关键，跳转后的新页面
-          就是从这个底色上长出来的，中间不会闪一下白。
-          「到达」那一半由工作台自己的入场动画接上。 */}
-      {isPending && <div className="door" aria-hidden="true" />}
     </>
   )
 }

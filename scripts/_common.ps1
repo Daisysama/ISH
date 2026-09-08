@@ -11,7 +11,6 @@ $PgDataDir = Join-Path $Root '.pgdata'
 $PgLogFile = Join-Path $Root '.pgdata.log'
 $EnvFile   = Join-Path $Root '.env'
 
-$AppPort    = 3000
 $PgPort     = 55432
 $PgUser     = 'ish'
 $PgPassword = 'ish_dev_password'

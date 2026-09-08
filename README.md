@@ -72,28 +72,6 @@ cd ISH
 
 ---
 
-## 捷径：双击 `ish.cmd`
-
-如果你不想一步步来，项目根目录下有个 `ish.cmd`，**双击它就行**。
-
-它会自己把下面第三、四、五步的事做完：绕开 PowerShell 的脚本限制、
-缺什么装什么、起数据库、起网站，然后等网站真的能打开了再帮你开浏览器。
-
-第一次跑要几分钟（要下载依赖、建数据库），之后每次几秒钟。
-**不管你的环境是什么状态，按它都是对的** —— 已经在跑了它就不重复启动，
-改过数据库结构它会先同步。
-
-想在命令行里跑也一样：
-
-```powershell
-.\ish.cmd
-```
-
-下面第三到第五步是它背后做的事。想弄明白每一步在干什么，或者 `ish.cmd`
-出了问题要手动排查，就往下看。
-
----
-
 ## 第三步：允许 PowerShell 运行脚本
 
 Windows 默认禁止运行 `.ps1` 脚本。执行一次下面这条命令解禁（只影响你当前用户，安全）：
@@ -157,19 +135,13 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | 想做什么 | 命令 |
 | --- | --- |
-| 启动网站 | 双击 `ish.cmd`（或 `.\scripts\go.ps1`） |
+| 启动网站 | `.\scripts\start.ps1` |
 | 停止（数据库也一起停） | `.\scripts\stop.ps1` |
 | 清空所有账号重来 | `.\scripts\reset-db.ps1` |
 | 看数据库里存了什么 | `npx prisma studio` |
 
-`ish.cmd` 和 `.\scripts\start.ps1` 的区别：`start.ps1` 只管起，缺东西就报错让你自己补；
-`ish.cmd` 缺什么补什么，还会顺手同步数据库结构、跳过重复启动、等就绪了开浏览器。
-日常用前者就够。
-
-不想让它开浏览器：`.\scripts\go.ps1 -NoBrowser`。
-
-启动后按 `Ctrl+C` 只会停掉网站，数据库还在后台跑着 —— 这不影响什么，
-下次启动会直接复用。想彻底停干净就用 `stop.ps1`。
+`start.ps1` 启动后按 `Ctrl+C` 只会停掉网站，数据库还在后台跑着 —— 这不影响什么，
+下次 `start.ps1` 会直接复用。想彻底停干净就用 `stop.ps1`。
 
 **你注册的账号会一直保留**，电脑重启也还在。数据存在项目目录下的 `.pgdata\` 文件夹里。
 
@@ -338,3 +310,11 @@ npx prisma db push
 
 `ish-product` 分支存着 V0.2 全栈工程版（FastAPI + React，9 个 Use Case 全实现，51 个后端测试），
 以及更早的 V0.1 单文件原型。当前这一版是按新的产品思路重新开始的。
+
+---
+
+# 公网部署
+
+`fromish.com` 的生产部署说明见：[`deploy/DEPLOY_PRODUCTION.md`](deploy/DEPLOY_PRODUCTION.md)。
+
+首个公开 Alpha 的设计与已知限制见：[`docs/devlog/2026-09-08-v0.1-alpha-public.md`](docs/devlog/2026-09-08-v0.1-alpha-public.md)。
