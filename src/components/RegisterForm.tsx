@@ -71,6 +71,10 @@ export function RegisterForm() {
       <p className="auth-switch">
         已经有账号了？<Link href="/login">去登录</Link>
       </p>
+
+      {/* 注册成功会直接登录并跳进工作台，和登录页是同一段过渡。
+          说明见 LoginForm。 */}
+      {isPending && <div className="door" aria-hidden="true" />}
     </>
   )
 }

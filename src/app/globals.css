@@ -930,3 +930,118 @@ a.brand:hover {
   text-decoration: none;
   opacity: 0.75;
 }
+
+/* ================================================================ 进门
+
+   登录 / 注册这一下是整个产品里唯一一次「从外面进到里面」，值得有个交代。
+
+   但它是一次整页跳转：server action 验证通过后 redirect，浏览器重新加载
+   一个新文档。旧页面的 DOM 连同它上面的动画一起没了，所以做不了那种
+   一镜到底的过渡，只能拆成两半，靠底色接上：
+
+     离开  .door     登录页上盖一层和背景同色的幕布，从中心荡开一圈涟漪
+     到达  .page-in  工作台从同一个底色上浮起来
+
+   幕布用 var(--bg) 而不是深色，就是为了这个衔接 —— 跳转瞬间浏览器画的
+   是新文档的背景色，两边一样才不会闪。 */
+
+.door {
+  position: fixed;
+  inset: 0;
+  /* 盖住顶栏（z-index: 10）和页面上的一切。 */
+  z-index: 50;
+  background: radial-gradient(60% 60% at 50% 50%, var(--soft), transparent 70%),
+    var(--bg);
+  /* 时长是被登录本身的耗时倒推出来的：本机验证一次密码大约 60ms，
+     整个跳转 150ms 上下就完了。动画比这慢，就会在半路被新页面打断 ——
+     一个播到一半被砍掉的动画，比没有动画更像卡顿。 */
+  animation: door-close 0.2s ease-out forwards;
+}
+
+@keyframes door-close {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 从中心荡开的一圈涟漪。纯装饰，但它让这一下有事情在发生，
+   而不是单纯的「卡了一下」。
+
+   网络慢、或者密码哈希算得久的时候，它会多转一会儿 —— 那正是需要它的时候。
+   快的时候被截断也不难看：一圈正在扩散并淡出的环，砍在哪一帧都是一次脉冲。 */
+.door::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+  animation: ripple 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(140);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- 到达 */
+
+/* 登录页自己的入场。从注册页切过来、或者被 middleware 踢回来时也走这一段。 */
+.auth-card {
+  animation: card-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+}
+
+/* 工作台入场。顶栏先落位，内容再浮上来 —— 差这 120ms，
+   读起来才像「进到一个已经存在的地方」，而不是整屏一起闪出来。 */
+.app-header {
+  animation: fade-in 0.4s ease backwards;
+}
+
+.page {
+  animation: page-in 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) 0.12s backwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* 项目卡片自己还有一段 rise，叠在 .page 的入场上：
+   先整页浮起，卡片再依次铺开。两段动画的延迟是累加的，
+   所以卡片的 animationDelay 保持在小数值，不然最后一张要等太久。 */
+
+@media (prefers-reduced-motion: reduce) {
+  /* 幕布是 forwards 的，动画时长被压到 0 之后会立刻变成一整块不透明的底色，
+     然后一直停在那儿直到跳转完成 —— 那就成了一块莫名其妙的空白屏。
+     关掉动效的人本来就不需要这个过渡，直接不显示。 */
+  .door {
+    display: none;
+  }
+}
