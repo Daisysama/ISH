@@ -1,0 +1,35 @@
+// ISH 数据库结构定义。
+//
+// 改了这个文件之后，跑 `npx prisma db push` 把改动同步到数据库。
+// Prisma 会根据这里的定义自动生成带类型提示的查询代码。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 用户账号。
+///
+/// 这一版只存登录必需的信息。个人简介、技能标签、头像等等，
+/// 等真正有页面用到它们的时候再加。
+model User {
+  id String @id @default(uuid())
+
+  /// 登录用的邮箱。统一转成小写后存储，避免 Alice@x.com 和 alice@x.com 被当成两个人。
+  email String @unique
+
+  /// 显示名称。会出现在界面上，可以重复。
+  displayName String
+
+  /// bcrypt 哈希后的密码。数据库里永远不存明文。
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}

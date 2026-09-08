@@ -1,17 +1,28 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
+# 依赖
 node_modules/
-dist/
+
+# Next.js 构建产物
+.next/
+out/
+next-env.d.ts
+
+# 环境变量（含密钥，绝不提交）
 .env
 .env.local
-*.log
-.DS_Store
-.idea/
-.vscode/
+.env*.local
 
-# 本地 PostgreSQL 集群与日志
+# 本地 PostgreSQL
 .pgdata/
 .pgdata.log
+
+# Prisma 生成的客户端代码
+src/generated/
+
+# 编辑器与系统
+.idea/
+.vscode/
+.DS_Store
+*.log
+
+# TypeScript 增量编译缓存
+tsconfig.tsbuildinfo
