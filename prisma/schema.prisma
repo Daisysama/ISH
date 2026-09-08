@@ -28,8 +28,49 @@ model User {
   /// bcrypt 哈希后的密码。数据库里永远不存明文。
   passwordHash String
 
+  /// 这个人发起的项目。
+  projects Project[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+/// 项目 —— ISH 的核心对象。
+///
+/// 这里是「以项目为中心」这句话落到数据上的样子：项目不挂在公司或组织下面，
+/// 它自己就是顶层实体，由一个发起人立起来，其他人围绕它聚集。
+model Project {
+  id String @id @default(uuid())
+
+  /// 一句话说清你要做什么。
+  title String
+
+  /// 展开讲讲：为什么做、做到什么程度算成。
+  summary String
+
+  /// 领域分类。用字符串而不是枚举，因为分类会随着平台上真实出现的项目调整，
+  /// 每次调整都改一次数据库枚举太重了。
+  category String
+
+  /// 投入预期：interest（兴趣项目）/ serious（认真做，奔着成事去）。
+  /// 写在项目上而不是让人自己猜，是为了让「愿同行」的人一开始就知道要投入多少。
+  mode String
+
+  /// 需要什么样的同行者。字符串数组，PostgreSQL 原生支持。
+  needs String[]
+
+  /// 发起人。删账号时项目跟着删 —— 现阶段项目还没有第二个成员，
+  /// 等「结伴」做出来之后这里要改成保留项目、转移发起人。
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 「发现项目」页要按时间倒序列出全部项目，个人页要按发起人筛。
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("projects")
 }
