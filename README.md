@@ -6,27 +6,74 @@
 > V0.2 要验证的是另一件事：**这些规则能不能被真正执行**——
 > 而不是靠前端不显示按钮来维持。
 
-拿到这个仓库之后不是双击 HTML，而是：
+本地部署，不需要 Docker。
 
-```bash
-docker compose up --build
+```powershell
+.\scripts\setup.ps1     # 第一次，装环境 + 建库 + 灌演示数据
 ```
 
-然后浏览器打开 <http://localhost:5173>。
+```powershell
+.\scripts\start.ps1     # 以后每次，一条命令起全部
+```
+
+浏览器会自动打开 <http://localhost:5173>。
 
 ---
 
-## 1. 起来之后有什么
+## 1. 环境要求
 
-| 服务 | 地址 | 说明 |
+| 依赖 | 版本 | 说明 |
 | --- | --- | --- |
-| frontend | <http://localhost:5173> | React + TypeScript + Vite |
-| backend | <http://localhost:8000> | FastAPI，OpenAPI 文档在 <http://localhost:5173/api/docs> |
-| postgres | localhost:5433 | PostgreSQL 16，用户/密码 `ish` / `ish_dev_password`，库 `ish` 与 `ish_test` |
+| Python | 3.12+ | 安装时勾选 Add to PATH |
+| Node.js | 20+ | 带 npm |
+| PostgreSQL | 14+ | 只用它的命令行工具，**不需要跑系统服务** |
 
-首次启动会自动执行 Alembic 迁移并灌入演示数据（可重复执行，不会重复写）。
+PostgreSQL 装好后如果 `pg_ctl` 不在 PATH 里，脚本会自动去常见目录找
+（`D:\Pgsql\bin`、`C:\Program Files\PostgreSQL\*\bin`）。都找不到就手动指一下：
 
-### 测试账号
+```powershell
+$env:ISH_PG_BIN = "D:\Pgsql\bin"
+```
+
+### 关于数据库
+
+`setup.ps1` 会在项目目录下的 `.pgdata\` 里建一个**项目专用的 PostgreSQL 集群**，
+跑在 **55432** 端口。
+
+这么做是有意的：
+
+- 不碰你系统里已有的 PostgreSQL 实例，不改它的 `pg_hba.conf`，不抢 5432 端口
+- 不需要知道系统 postgres 用户的密码
+- 整个数据库跟着项目走，删掉 `.pgdata\` 就等于彻底重来
+- 只监听 `127.0.0.1`，外部访问不到
+
+如果你更想用自己已有的 PostgreSQL，复制 `backend\.env.example` 成 `backend\.env`，
+把连接串改掉即可，脚本会读它。
+
+---
+
+## 2. 常用脚本
+
+| 脚本 | 作用 |
+| --- | --- |
+| `.\scripts\setup.ps1` | 一次性搭建。可重复执行，做过的步骤会跳过 |
+| `.\scripts\start.ps1` | 起数据库 + 后端 + 前端，自动打开浏览器 |
+| `.\scripts\stop.ps1` | 全部停掉（数据保留） |
+| `.\scripts\test.ps1` | 跑后端测试 |
+| `.\scripts\reset-db.ps1` | 清空数据库，重跑迁移和演示数据 |
+
+后端和前端各自会开一个新的 PowerShell 窗口，方便看日志。关掉窗口就等于停掉那个服务。
+
+### 起来之后
+
+| 服务 | 地址 |
+| --- | --- |
+| 前端 | <http://localhost:5173> |
+| 后端 API | <http://127.0.0.1:8000> |
+| API 文档 | <http://localhost:5173/api/docs> |
+| 数据库 | `127.0.0.1:55432`，用户 `ish`，库 `ish` 与 `ish_test` |
+
+### 演示账号
 
 密码统一为 `ish-demo-2026`。
 
@@ -36,14 +83,14 @@ docker compose up --build
 | `bob@ish.demo` | 周野 · 协作者 | 申请加入、确认契约、完成航标 |
 | `curator@ish.demo` | ISH 编辑部 | 唯一能写作品「适合谁 / 慎入」和商业关系披露的角色 |
 
+登录页上有三个一键登录按钮，不用手输。
+
 > 建议开两个窗口（一个正常窗口 + 一个隐私窗口），分别登录 alice 和 bob。
 > 只用一个账号跑，看不出这套权限设计的意义。
 
-登录页上有三个一键登录按钮，不用手输。
-
 ---
 
-## 2. 建议的验收路径
+## 3. 建议的验收路径
 
 按顺序走一遍，大约 10 分钟。**重点不是界面，是每一步「越权会发生什么」。**
 
@@ -126,7 +173,7 @@ docker compose up --build
 
 ---
 
-## 3. 直接抓 API
+## 4. 直接抓 API
 
 后端有完整的 OpenAPI 文档，可以在浏览器里直接调：
 
@@ -138,35 +185,32 @@ docker compose up --build
 用 curl 走一遍：
 
 ```bash
-curl -c jar.txt -X POST http://localhost:8000/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"alice@ish.demo","password":"ish-demo-2026"}'
+curl -c jar.txt -X POST http://127.0.0.1:8000/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"alice@ish.demo\",\"password\":\"ish-demo-2026\"}"
 ```
 
 ```bash
-CSRF=$(grep ish_csrf jar.txt | awk '{print $7}') && curl -b jar.txt -X POST http://localhost:8000/api/projects -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" -d '{"title":"命令行发的愿","summary":"用来验证 API 层是真的存在的，不是前端假装的。","category":"其他","mode":"interest","needs":["程序"]}'
+CSRF=$(grep ish_csrf jar.txt | awk '{print $7}') && curl -b jar.txt -X POST http://127.0.0.1:8000/api/projects -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" -d '{"title":"命令行发的愿","summary":"用来验证 API 层是真的存在的，不是前端假装的。","category":"其他","mode":"interest","needs":["程序"]}'
 ```
 
 把 `-H "X-CSRF-Token: $CSRF"` 去掉再跑一次，会被 403 挡住。
 
 ---
 
-## 4. 跑测试
+## 5. 跑测试
+
+```powershell
+.\scripts\test.ps1
+```
+
+```powershell
+.\scripts\test.ps1 -Verbose          # 显示每个用例名
+.\scripts\test.ps1 -Match trust      # 只跑名字里带 trust 的
+```
 
 测试跑在独立的 `ish_test` 库上，schema 由真实的 Alembic 迁移建立，
-每个用例包在一个外层事务里，结束时整体回滚。
+每个用例包在一个外层事务里，结束时整体回滚——不会碰到 `ish` 库里的演示数据。
 
-```bash
-docker compose exec backend pytest
-```
-
-看详细列表：
-
-```bash
-docker compose exec backend pytest -v
-```
-
-没有 Docker 的话见 [第 7 节](#7-不用-docker-直接跑windows)。当前 **51 个用例全部通过**。
+**当前 51 个用例全部通过。**
 
 ### 这些测试在守什么
 
@@ -187,40 +231,43 @@ docker compose exec backend pytest -v
 
 ---
 
-## 5. 架构
+## 6. 架构
 
 ```
 F:\ish
-├─ docker-compose.yml        frontend / backend / postgres
-├─ backend/
-│  ├─ app/
+├─ scripts\                  本地部署脚本（setup / start / stop / test / reset-db）
+├─ backend\
+│  ├─ app\
 │  │  ├─ main.py             FastAPI 入口 + CSRF 中间件
-│  │  ├─ config.py           全部配置走环境变量
+│  │  ├─ config.py           配置（环境变量 > .env > 默认值）
 │  │  ├─ db.py               SQLAlchemy engine / session
 │  │  ├─ security.py         bcrypt + JWT + HttpOnly cookie + CSRF
 │  │  ├─ deps.py             权限依赖：owner / member / signed_member / curator
-│  │  ├─ models/             ORM 模型
+│  │  ├─ models\             ORM 模型
 │  │  ├─ schemas.py          Pydantic 输入输出契约
 │  │  ├─ serializers.py      ORM → 响应（履历只能从这里推导）
-│  │  ├─ services/
+│  │  ├─ services\
 │  │  │  ├─ audit.py         append-only 哈希链
 │  │  │  └─ templates.py     立契模板
-│  │  ├─ api/                按 Use Case 分的路由
+│  │  ├─ api\                按 Use Case 分的路由
 │  │  └─ seed.py             可重复执行的演示数据
-│  ├─ alembic/               数据库迁移（含审计表触发器）
-│  └─ tests/                 pytest
-├─ frontend/
-│  └─ src/
-│     ├─ api/                fetch 封装 + 类型定义
-│     ├─ pages/              按 Use Case 分的页面
-│     ├─ components/         公共组件
-│     └─ state/              登录态
-└─ legacy/                   V0.1 单文件原型（存档）
+│  ├─ alembic\               数据库迁移（含审计表触发器）
+│  ├─ tests\                 pytest
+│  ├─ .env.example           配置样例
+│  └─ requirements.txt
+├─ frontend\
+│  └─ src\
+│     ├─ api\                fetch 封装 + 类型定义
+│     ├─ pages\              按 Use Case 分的页面
+│     ├─ components\         公共组件
+│     └─ state\              登录态
+├─ .pgdata\                  本地 PostgreSQL 集群（不进版本库）
+└─ legacy\                   V0.1 单文件原型（存档）
 ```
 
 ### 权限模型
 
-四层，从松到紧：
+从松到紧：
 
 | 依赖 | 含义 |
 | --- | --- |
@@ -248,7 +295,7 @@ F:\ish
 
 ---
 
-## 6. 数据模型
+## 7. 数据模型
 
 ```
 users · user_tastes
@@ -270,73 +317,64 @@ audit_events · notifications
 
 ---
 
-## 7. 不用 Docker 直接跑（Windows）
+## 8. 手动操作（不用脚本时）
 
-这台开发机上没有安装 Docker，所以整套东西也验证过纯本地跑法。
-需要 Python 3.12、Node 20+ 和一个 PostgreSQL。
-
-### 7.1 起一个隔离的临时数据库集群
-
-不想动现有的 PostgreSQL 实例（不改 `pg_hba.conf`、不碰现有数据）的话，
-用同一套二进制另起一个独立集群，跑在 55432 端口：
+脚本只是把下面这些包起来，出问题时可以逐条手动执行。
 
 ```powershell
-& "D:\Pgsql\bin\initdb.exe" -D "$env:TEMP\ish-pgdata" -U ish --auth=trust -E UTF8
+$env:ISH_PG_BIN = "D:\Pgsql\bin"   # 按你的实际路径改
 ```
+
+**起数据库**
 
 ```powershell
-& "D:\Pgsql\bin\pg_ctl.exe" -D "$env:TEMP\ish-pgdata" -o "-p 55432 -c listen_addresses=127.0.0.1" -l "$env:TEMP\ish-pg.log" start
+& "$env:ISH_PG_BIN\pg_ctl.exe" -D "F:\ish\.pgdata" -o "-p 55432 -c listen_addresses=127.0.0.1" -l "F:\ish\.pgdata.log" start
 ```
 
-```powershell
-& "D:\Pgsql\bin\createdb.exe" -h 127.0.0.1 -p 55432 -U ish ish; & "D:\Pgsql\bin\createdb.exe" -h 127.0.0.1 -p 55432 -U ish ish_test
-```
-
-停掉它：
-
-```powershell
-& "D:\Pgsql\bin\pg_ctl.exe" -D "$env:TEMP\ish-pgdata" stop
-```
-
-如果用现有的 PostgreSQL，把下面的连接串换成你自己的即可。
-
-### 7.2 后端
-
-```powershell
-cd F:\ish\backend; py -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-```powershell
-$env:ISH_DATABASE_URL = "postgresql+psycopg://ish:ish_dev_password@127.0.0.1:55432/ish"; $env:ISH_TEST_DATABASE_URL = "postgresql+psycopg://ish:ish_dev_password@127.0.0.1:55432/ish_test"; $env:ALEMBIC_DATABASE_URL = $env:ISH_DATABASE_URL
-```
-
-```powershell
-cd F:\ish\backend; .\.venv\Scripts\alembic.exe upgrade head; .\.venv\Scripts\python.exe -m app.seed
-```
+**起后端**
 
 ```powershell
 cd F:\ish\backend; .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 7.3 前端
+**起前端**
 
 ```powershell
-cd F:\ish\frontend; npm install; $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:8000"; npm run dev
+cd F:\ish\frontend; $env:VITE_API_PROXY_TARGET = "http://127.0.0.1:8000"; npm run dev
 ```
 
-打开 <http://localhost:5173>。
-
-### 7.4 本地跑测试
+**跑迁移 / 灌数据 / 跑测试**
 
 ```powershell
-cd F:\ish\backend; .\.venv\Scripts\python.exe -m pytest -v
+cd F:\ish\backend; .\.venv\Scripts\alembic.exe upgrade head; .\.venv\Scripts\python.exe -m app.seed; .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-（需要先设好 `ISH_TEST_DATABASE_URL`。）
+**停数据库**
+
+```powershell
+& "$env:ISH_PG_BIN\pg_ctl.exe" -D "F:\ish\.pgdata" stop
+```
+
+### 常见问题
+
+**找不到 pg_ctl.exe** —— 设 `$env:ISH_PG_BIN` 指向 PostgreSQL 的 bin 目录。
+
+**端口被占用** —— 55432 / 8000 / 5173 三个端口冲突的话，在 `scripts\_common.ps1`
+顶部改掉对应变量。
+
+**想彻底重来** —— `.\scripts\stop.ps1`，删掉 `.pgdata\`，再跑 `.\scripts\setup.ps1`。
+
+**只想清空数据但保留环境** —— `.\scripts\reset-db.ps1`。
+
+**PowerShell 不让运行脚本** —— 当前用户放开一次即可：
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
 
 ---
 
-## 8. 这版仍然没有做
+## 9. 这版仍然没有做
 
 诚实起见，列清楚：
 
@@ -359,7 +397,7 @@ cd F:\ish\backend; .\.venv\Scripts\python.exe -m pytest -v
 
 ---
 
-## 9. 给评审者
+## 10. 给评审者
 
 请不要只评价界面。更希望被指出的是：
 

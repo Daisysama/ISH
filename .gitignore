@@ -11,3 +11,7 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# 本地 PostgreSQL 集群与日志
+.pgdata/
+.pgdata.log

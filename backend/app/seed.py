@@ -1,6 +1,6 @@
 """可重复执行的演示数据。
 
-只在库里还没有 alice 时写入，所以 `docker compose up` 反复起也不会重复灌数据。
+只在库里还没有 alice 时写入，所以反复执行也不会重复灌数据。
 """
 
 from datetime import UTC, datetime, timedelta
