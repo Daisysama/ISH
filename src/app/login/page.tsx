@@ -1,5 +1,5 @@
-import { BrandHeader } from '@/components/BrandHeader'
-import { LoginForm } from '@/components/LoginForm'
+import { BrandHeader } from '@/frontend/components/brand/BrandHeader'
+import { LoginForm } from '@/frontend/components/auth/LoginForm'
 
 export const metadata = { title: '登录 · ISH' }
 

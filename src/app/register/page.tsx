@@ -1,5 +1,5 @@
-import { BrandHeader } from '@/components/BrandHeader'
-import { RegisterForm } from '@/components/RegisterForm'
+import { BrandHeader } from '@/frontend/components/brand/BrandHeader'
+import { RegisterForm } from '@/frontend/components/auth/RegisterForm'
 
 export const metadata = { title: '注册 · ISH' }
 

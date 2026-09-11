@@ -3,18 +3,27 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 
-import { registerAction, type FormState } from '@/app/actions/auth'
+import { loginAction } from '@/backend/auth/actions'
+import type { FormState } from '@/shared/auth'
 
-export function RegisterForm() {
+/**
+ * 'use client' 表示这个组件在浏览器里运行 —— 因为它需要响应用户输入。
+ *
+ * useActionState 把表单和服务器函数接起来：
+ *   state     服务器返回的结果（这里就是错误信息）
+ *   action    绑到 <form> 上，提交时自动调用服务器函数
+ *   isPending 提交进行中，用来把按钮变成禁用状态防止重复点击
+ */
+export function LoginForm({ initialEmail }: { initialEmail?: string }) {
   const [state, action, isPending] = useActionState<FormState, FormData>(
-    registerAction,
+    loginAction,
     {},
   )
 
   return (
     <>
-      <h2>注册</h2>
-      <p className="subtitle">注册完就能直接进来。</p>
+      <h2>登录</h2>
+      <p className="subtitle">欢迎回来。</p>
 
       {state.error && (
         <div className="form-error" role="alert">
@@ -24,20 +33,6 @@ export function RegisterForm() {
 
       <form action={action}>
         <div className="field">
-          <label htmlFor="displayName">显示名称</label>
-          <input
-            id="displayName"
-            name="displayName"
-            type="text"
-            required
-            maxLength={50}
-            autoComplete="nickname"
-            aria-invalid={state.field === 'displayName'}
-          />
-          <span className="hint">别人在 ISH 上看到你的名字，之后可以改。</span>
-        </div>
-
-        <div className="field">
           <label htmlFor="email">邮箱</label>
           <input
             id="email"
@@ -45,6 +40,7 @@ export function RegisterForm() {
             type="email"
             required
             autoComplete="email"
+            defaultValue={initialEmail}
             aria-invalid={state.field === 'email'}
           />
         </div>
@@ -56,20 +52,18 @@ export function RegisterForm() {
             name="password"
             type="password"
             required
-            minLength={8}
-            autoComplete="new-password"
+            autoComplete="current-password"
             aria-invalid={state.field === 'password'}
           />
-          <span className="hint">至少 8 位。</span>
         </div>
 
         <button className="btn" type="submit" disabled={isPending}>
-          {isPending ? '注册中…' : '注册并进入'}
+          {isPending ? '登录中…' : '登录'}
         </button>
       </form>
 
       <p className="auth-switch">
-        已经有账号了？<Link href="/login">去登录</Link>
+        还没有账号？<Link href="/register">注册一个</Link>
       </p>
     </>
   )
