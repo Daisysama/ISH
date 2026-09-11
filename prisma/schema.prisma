@@ -1,7 +1,9 @@
 // ISH 数据库结构定义。
 //
-// 改了这个文件之后，跑 `npx prisma db push` 把改动同步到数据库。
-// Prisma 会根据这里的定义自动生成带类型提示的查询代码。
+// v0.2 起进入可审计 migration 工作流：
+//   - 开发环境：npx prisma migrate dev
+//   - 生产环境：npx prisma migrate deploy
+// 不再使用 db push 直接修改生产结构。
 
 generator client {
   provider = "prisma-client-js"
@@ -13,9 +15,6 @@ datasource db {
 }
 
 /// 用户账号。
-///
-/// 这一版只存登录必需的信息。个人简介、技能标签、头像等等，
-/// 等真正有页面用到它们的时候再加。
 model User {
   id String @id @default(uuid())
 
@@ -31,5 +30,66 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  createdProjects  Project[]                  @relation("ProjectCreator")
+  moderationEvents ProjectModerationEvent[]   @relation("ProjectModerator")
+
   @@map("users")
+}
+
+/// “咩”从提交到公开的最小状态机。
+enum ProjectStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+/// 审核事件只追加不覆盖，用于保留治理动作历史。
+enum ModerationAction {
+  APPROVED
+  REJECTED
+}
+
+model Project {
+  id String @id @default(uuid())
+
+  creatorId String
+  creator   User   @relation("ProjectCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String
+  description String @db.Text
+
+  status          ProjectStatus @default(PENDING)
+  rejectionReason String?       @db.Text
+
+  submittedAt DateTime  @default(now())
+  reviewedAt  DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  moderationEvents ProjectModerationEvent[]
+
+  @@index([status, submittedAt])
+  @@index([creatorId, createdAt])
+  @@map("projects")
+}
+
+model ProjectModerationEvent {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  moderatorId String?
+  moderator   User?   @relation("ProjectModerator", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  action ModerationAction
+  note   String?          @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([moderatorId, createdAt])
+  @@map("project_moderation_events")
 }

@@ -1,148 +1,135 @@
-# ISH v0.1-alpha — fromish.com production deployment
+# ISH v0.2-alpha — fromish.com production deployment
 
 Target topology:
 
-Internet -> HTTPS/Nginx on CVM -> Next.js 127.0.0.1:3000 -> Tencent Cloud PostgreSQL private IP 10.0.0.7:5432
+Internet -> HTTPS/Nginx on CVM -> Next.js 127.0.0.1:3000 -> Tencent Cloud PostgreSQL private network
 
-## 1. DNS
+> v0.2 是第一次修改既有生产数据库结构的版本。生产库最初由 `prisma db push` 创建，
+> 因此本次部署必须先建立 migration baseline。不要直接在没有备份的生产库上试命令。
 
-Create DNS records:
+## 1. 发布前检查
 
-- `@` A -> CVM public IPv4
-- `www` CNAME -> `fromish.com` (optional but recommended)
-
-Do not expose port 3000 in the CVM security group. Public inbound should remain 80/443; SSH 22 should remain restricted to trusted IPs.
-
-## 2. Install server packages
-
-Ubuntu 24.04:
+本地 / CI 至少完成：
 
 ```bash
-sudo apt update
-sudo apt install -y nginx git curl ca-certificates certbot python3-certbot-nginx
+npm ci
+npm run typecheck
+npm run build
 ```
 
-Install a system-wide Node.js LTS version compatible with this project (Node 22 recommended for this release), then verify:
+确认 release commit、tag、Devlog 与准备部署的代码一致。
 
-```bash
-node -v
-npm -v
-```
+## 2. 生产备份
 
-## 3. Create service account and deploy directory
+在执行任何 migration 前：
 
-```bash
-sudo adduser --system --group --home /opt/ish ish
-sudo mkdir -p /opt/ish
-sudo chown -R ish:ish /opt/ish
-```
+- 创建腾讯云 PostgreSQL 可恢复备份 / 快照；
+- 或使用具备权限的账户执行 `pg_dump`；
+- 记录当前生产 Git HEAD 与数据库时间点。
 
-Put the repository contents into `/opt/ish` (Git clone/pull is preferred for team traceability), then:
+如果不能确认备份可恢复，不继续数据库变更。
 
-```bash
-cd /opt/ish
-sudo -u ish npm ci
-```
-
-## 4. Production environment
-
-Create `/opt/ish/.env` and never commit it:
-
-```env
-DATABASE_URL="postgresql://ISH_APP_USER:URL_ENCODED_PASSWORD@10.0.0.7:5432/ish"
-SESSION_SECRET="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"
-```
-
-Generate a session secret:
-
-```bash
-openssl rand -base64 48
-```
-
-Prefer a dedicated runtime database account; do not use the database superuser for normal web requests.
-
-## 5. Initialize schema and build
-
-For the first alpha deployment only, use an account with schema-creation privileges to initialize the empty database:
-
-```bash
-cd /opt/ish
-sudo -u ish npx prisma generate
-sudo -u ish npx prisma db push
-sudo -u ish npm run build
-```
-
-After the schema exists, switch `DATABASE_URL` to a least-privilege runtime account with only the permissions the app requires.
-
-Before the product starts accumulating important data, replace `prisma db push` with committed Prisma migrations (`prisma migrate`) so every schema change is reviewable and reproducible.
-
-## 6. systemd
-
-```bash
-sudo cp /opt/ish/deploy/systemd/ish.service /etc/systemd/system/ish.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now ish
-sudo systemctl status ish --no-pager
-```
-
-Local health check:
-
-```bash
-curl -I http://127.0.0.1:3000/login
-```
-
-## 7. Nginx
-
-```bash
-sudo cp /opt/ish/deploy/nginx/fromish.com.conf /etc/nginx/sites-available/fromish.com
-sudo ln -sfn /etc/nginx/sites-available/fromish.com /etc/nginx/sites-enabled/fromish.com
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-At this point `http://fromish.com` should reach the application.
-
-## 8. HTTPS
-
-Production auth cookies are Secure, so the public login/registration flow must use HTTPS.
-
-```bash
-sudo certbot --nginx -d fromish.com -d www.fromish.com
-```
-
-Choose redirect-to-HTTPS when Certbot asks. Then verify:
-
-```bash
-curl -I https://fromish.com/login
-sudo certbot renew --dry-run
-```
-
-## 9. Release smoke test
-
-From a normal browser/incognito window:
-
-1. Open `https://fromish.com`.
-2. Register a test user.
-3. Confirm redirect to `/dashboard`.
-4. Log out.
-5. Log in again.
-6. Confirm the user row exists in PostgreSQL.
-7. Confirm port 3000 and PostgreSQL 5432 are not publicly reachable.
-
-## 10. Updates
-
-Preferred workflow:
+## 3. 更新代码与依赖
 
 ```bash
 cd /opt/ish
 git pull --ff-only
 sudo -u ish npm ci
-sudo -u ish npx prisma generate
+```
+
+`npm ci` 会通过 `postinstall` 自动执行 `prisma generate`。
+
+## 4. 生产环境变量
+
+`/opt/ish/.env` 至少包含：
+
+```env
+DATABASE_URL="postgresql://ISH_APP_USER:URL_ENCODED_PASSWORD@PRIVATE_HOST:5432/ish"
+SESSION_SECRET="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"
+ADMIN_EMAILS="YOUR_ADMIN_LOGIN_EMAIL"
+```
+
+- `ADMIN_EMAILS` 多个邮箱用英文逗号分隔；
+- 不要把真实生产配置提交到 Git；
+- 正常运行继续使用最小权限 `ish_app`；
+- migration 阶段如需建表 / enum / index / foreign key，应临时使用具备 DDL 权限的迁移账户。
+
+## 5. v0.1.x → v0.2 一次性 migration baseline
+
+**仅第一次从 v0.1.x 升级时执行。**
+
+生产库已经存在 `users` 表，但没有 Prisma migration 历史。先确认这一事实，再用 migration-capable `DATABASE_URL`：
+
+```bash
+cd /opt/ish
+sudo -u ish npx prisma migrate resolve --applied 20260912000000_v0_1_baseline
+sudo -u ish npx prisma migrate deploy
+```
+
+第一条命令不会重新创建 `users`，只告诉 Prisma：
+
+> 当前生产库已经处于 v0.1 baseline 状态。
+
+第二条命令随后应用：
+
+`20260912053000_add_meow_projects`
+
+预期新增：
+
+- `ProjectStatus` enum
+- `ModerationAction` enum
+- `projects`
+- `project_moderation_events`
+- 对应 indexes / foreign keys
+
+完成后把应用连接恢复为最小权限 runtime 数据库账户。
+
+### 禁止事项
+
+- 不要在生产执行 `prisma db push`；
+- 不要对空数据库执行 `migrate resolve --applied`；空库直接 `migrate deploy`；
+- 不要在未备份、未核对 schema 的情况下标记 baseline。
+
+## 6. Build 与服务重启
+
+```bash
+cd /opt/ish
+sudo -u ish npm run build
+sudo systemctl restart ish
+sudo systemctl status ish --no-pager
+```
+
+Nginx、systemd、HTTPS 配置如果没有变化，不需要重新安装。
+
+## 7. v0.2 发布验收
+
+使用浏览器验证：
+
+1. 未登录访问 `https://fromish.com`，进入 `/projects`；
+2. 登录普通账号；
+3. Dashboard 正常；
+4. 点击「咩一个项目」并提交；
+5. 提交后项目状态为 `PENDING`，未登录或其他普通账号不能访问其项目页；
+6. 使用 `ADMIN_EMAILS` 中的管理员账号进入 `/admin/moderation`；
+7. 审核通过后项目进入 `/projects`，未登录用户可以查看；
+8. 再建立一个测试项目并退回，创作者可以看到退回原因；
+9. 数据库中存在对应 `project_moderation_events` 审核事件；
+10. 注册 → 登出 → 登录旧账户链路仍正常；
+11. 3000 与 PostgreSQL 5432 仍未暴露公网。
+
+## 8. 后续普通发布
+
+完成 baseline 以后，未来带数据库 migration 的版本统一：
+
+```bash
+cd /opt/ish
+git pull --ff-only
+sudo -u ish npm ci
+# 临时切换为 migration-capable DB credential
+sudo -u ish npx prisma migrate deploy
+# 恢复 runtime DB credential
 sudo -u ish npm run build
 sudo systemctl restart ish
 ```
 
-If a release contains a database migration, run the reviewed migration command before restarting the service.
-
-Every substantive production change should have a Git commit and a development log entry explaining what changed, why, trade-offs, impact, and next steps.
+每次实质性生产变更必须对应 Git commit / tag 和 Devlog。

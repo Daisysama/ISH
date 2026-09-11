@@ -1,57 +1,65 @@
 # ISH 项目结构
 
-ISH 使用 Next.js，因此不会为了形式上的“前后端分离”破坏框架约定。
-`src/app/` 继续承担 Next.js 的路由入口；真正的实现按职责放入 frontend/backend/core/shared。
+v0.2 仍遵循“框架入口保持标准，业务实现按职责分层”的原则。
 
 ```text
 ISH/
 ├─ docs/
-│  ├─ architecture/        # 架构与文件地图
-│  ├─ engineering/         # 开发规范与模板
-│  └─ devlog/              # 每次实质修改的开发日志
-├─ src/
-│  ├─ app/                 # Next.js 路由层，保持薄
-│  ├─ frontend/            # 前端 UI / 浏览器交互
-│  ├─ backend/             # 服务端业务 / 鉴权 / 数据访问
-│  ├─ core/                # 框架无关的业务规则
-│  └─ shared/              # 前后端共享类型、schema、纯工具
-├─ prisma/                 # 数据库层
-├─ deploy/                 # Nginx / systemd / 生产部署
-├─ scripts/                # 本地开发与运维脚本
-└─ README.md
+│  ├─ devlog/                 # 每次实质修改的开发日志
+│  ├─ architecture/           # 架构与文件职责
+│  └─ engineering/            # 工程原则与日志模板
+├─ prisma/
+│  ├─ schema.prisma           # 当前数据库模型
+│  └─ migrations/             # 可审计 migration 历史
+├─ deploy/                    # Nginx、systemd、生产部署说明
+├─ scripts/                   # 本地搭建、启动、migration、重置脚本
+└─ src/
+   ├─ app/                    # Next.js 路由入口
+   │  ├─ dashboard/           # 登录用户工作台
+   │  ├─ meow/new/            # 「咩」项目提交入口
+   │  ├─ projects/            # 公开项目列表与项目主页
+   │  └─ admin/moderation/    # 管理员审核队列
+   ├─ frontend/               # UI 组件与交互
+   │  └─ components/
+   │     ├─ auth/
+   │     ├─ brand/
+   │     ├─ projects/
+   │     └─ moderation/
+   ├─ backend/                # 服务端身份、数据库访问、Server Actions
+   │  ├─ auth/
+   │  ├─ database/
+   │  ├─ projects/
+   │  └─ moderation/
+   ├─ core/                   # 与 Next/Prisma 解耦的业务规则
+   │  └─ meow/
+   └─ shared/                 # 跨层共享的轻量类型与常量
 ```
 
-## 当前模块映射
-
-### 账号与会话
-
-- `src/backend/auth/actions.ts`：注册、登录、登出 Server Actions。
-- `src/backend/auth/password.ts`：密码哈希、校验、邮箱规范化。
-- `src/backend/auth/session.ts`：JWT Session Cookie。
-- `src/backend/auth/current-user.ts`：读取当前登录用户。
-- `src/backend/database/client.ts`：PrismaClient 生命周期管理。
-- `src/shared/auth.ts`：登录/注册表单共享类型。
-- `src/frontend/components/auth/`：登录/注册浏览器组件。
-
-### 路由
-
-- `src/app/login/`：登录页入口。
-- `src/app/register/`：注册页入口。
-- `src/app/dashboard/`：登录后工作台入口。
-- `src/middleware.ts`：路由访问控制。
-
-## v0.2 预留模块
-
-未来真实业务按功能继续拆入：
+## v0.2 业务流
 
 ```text
-src/core/
-├─ meow/                   # 「咩」及项目核心规则
-├─ project/                # 项目状态与生命周期
-├─ application/            # 协作者 / 测试者申请规则
-├─ feedback/               # 结构化玩家反馈
-└─ moderation/             # 内容审核和治理规则
+登录用户
+  ↓
+/meow/new
+  ↓ createProjectAction
+Project(status=PENDING)
+  ↓
+创作者私有预览
+  ↓
+/admin/moderation
+  ├─ APPROVED → PUBLISHED → /projects 公开
+  └─ REJECTED → 创作者看到退回原因
+
+所有审核动作
+  ↓
+ProjectModerationEvent（追加式留痕）
 ```
 
-对应 UI 放 `src/frontend/`，服务端实现放 `src/backend/`。
-不要把核心规则直接埋进 React 组件、Server Action 或 Prisma 查询中。
+## 边界规则
+
+- `src/app` 只承担路由与页面装配，不堆积数据库写入逻辑；
+- `src/core` 不依赖 Next.js / Prisma；
+- 数据库写入集中在 `src/backend`；
+- Client Component 只负责表单交互，不持有管理员判定逻辑；
+- 非公开项目的访问控制必须在服务端再次校验，不能只靠前端隐藏链接；
+- 审核状态变化必须同时写入审核事件记录。

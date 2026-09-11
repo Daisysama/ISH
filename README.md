@@ -7,9 +7,9 @@
 以**项目**而不是职位为中心的开放协作平台。不是"公司先存在再招人"，
 而是"目标先存在，人因目标聚集，团队形成，组织甚至可以从项目里长出来"。
 
-**当前公开版本：** `v0.1.0-alpha`。已验证邮箱注册、登录、登出、Session、Dashboard 占位工作台、PostgreSQL 持久化与 HTTPS 公网部署。
+**当前开发版本：** `v0.2.0-alpha`。在 v0.1.x 账户与公网部署基线之上，开始建立第一条核心业务闭环：**咩 → 项目主页 → 审核 → 发布**。
 
-核心业务仍在开发。下一阶段从「咩」与项目主页开始，逐步建立创作者 × 玩家 × ISH 的共创闭环。
+当前新增：项目提交、非公开预览、人工审核、公开项目列表、审核事件留痕。
 
 ---
 
@@ -123,10 +123,10 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ## 第六步：注册一个账号
 
-打开网站会看到登录页。点「注册一个」，填显示名称、邮箱、密码（至少 8 位），
+访客打开网站会先看到公开项目页。点击登录 / 注册后，点「注册一个」，填显示名称、邮箱、密码（至少 8 位），
 提交后会自动登录进去。
 
-v0.1.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用测试邮箱。公网环境中的账号数据会写入生产 PostgreSQL；不要把真实密码复用于其他网站。
+v0.2.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用测试邮箱。公网环境中的账号数据会写入生产 PostgreSQL；不要把真实密码复用于其他网站。
 
 ---
 
@@ -138,6 +138,7 @@ v0.1.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用�
 | 停止（数据库也一起停） | `.\scripts\stop.ps1` |
 | 清空所有账号重来 | `.\scripts\reset-db.ps1` |
 | 看数据库里存了什么 | `npx prisma studio` |
+| 应用本地数据库迁移 | `.\scripts\migrate-local.ps1` |
 
 `start.ps1` 启动后按 `Ctrl+C` 只会停掉网站，数据库还在后台跑着 —— 这不影响什么，
 下次 `start.ps1` 会直接复用。想彻底停干净就用 `stop.ps1`。
@@ -204,11 +205,12 @@ createdb ish
 
 **3. 建配置文件**
 
-在项目根目录建一个叫 `.env` 的文件（可以复制 `.env.example` 改），内容两行：
+在项目根目录建一个叫 `.env` 的文件（可以复制 `.env.example` 改），至少包含：
 
 ```
 DATABASE_URL="postgresql://用户名:密码@127.0.0.1:5432/ish"
 SESSION_SECRET="一串至少32位的随机字符串"
+ADMIN_EMAILS="你的管理员登录邮箱"
 ```
 
 `SESSION_SECRET` 用这条命令生成一个：
@@ -217,11 +219,15 @@ SESSION_SECRET="一串至少32位的随机字符串"
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
 
-**4. 建表**
+**4. 应用数据库 migrations**
+
+新建空数据库：
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 ```
+
+如果是从 v0.1.x 由 `db push` 建立的旧数据库升级，请先阅读 `prisma/README.md`，完成 baseline 后再 deploy。
 
 **5. 启动**
 
@@ -258,25 +264,27 @@ ISH 开发必须遵守两条根本规则：
 
 ```
 src/
-├─ app/                     页面（文件夹结构 = 网址结构）
-│  ├─ page.tsx              /            按登录状态跳转
-│  ├─ login/page.tsx        /login       登录页
-│  ├─ register/page.tsx     /register    注册页
-│  ├─ dashboard/
-│  │  ├─ layout.tsx         顶栏 + 退出登录按钮
-│  │  └─ page.tsx           /dashboard   「正在开发中」占位
-│  ├─ actions/auth.ts       注册/登录/登出的服务端逻辑
+├─ app/                     Next.js 路由入口
+│  ├─ dashboard/            创作者工作台
+│  ├─ meow/new/             「咩」提交页
+│  ├─ projects/             公开项目与项目主页
+│  ├─ admin/moderation/     管理员审核队列
+│  ├─ login/ register/      账号入口
 │  └─ globals.css           全站样式
-├─ components/              可复用的界面组件
-├─ lib/
-│  ├─ db.ts                 数据库连接
-│  ├─ session.ts            会话 cookie 的签发与校验
-│  └─ auth.ts               密码哈希、取当前用户
-└─ middleware.ts            路由守卫：没登录不许进 /dashboard
+├─ frontend/                可复用 UI 与浏览器交互
+├─ backend/                 认证、数据库、项目写入、审核动作
+├─ core/                    与框架解耦的业务规则
+├─ shared/                  跨层共享类型与常量
+└─ middleware.ts            登录态路由守卫
 
-prisma/schema.prisma        数据库表结构定义
-scripts/                    Windows 本地部署脚本
+prisma/
+├─ schema.prisma            当前数据库模型
+└─ migrations/              可审计数据库迁移历史
+
+scripts/                    Windows 本地开发 / migration 脚本
 ```
+
+完整职责见 `docs/architecture/FILE_MAP.md`。
 
 ## 登录是怎么做的
 
@@ -296,11 +304,21 @@ scripts/                    Windows 本地部署脚本
 
 ## 改数据库结构
 
-改 `prisma/schema.prisma`，然后：
+从 v0.2 开始使用 Prisma Migration，不再用 `db push` 修改生产数据库。
+
+开发环境修改 `prisma/schema.prisma` 后：
 
 ```bash
-npx prisma db push
+npx prisma migrate dev --name <migration-name>
 ```
+
+生产环境只执行已经提交、审核过的 migration：
+
+```bash
+npx prisma migrate deploy
+```
+
+从 v0.1.x 旧数据库升级前先阅读 `prisma/README.md`。
 
 ## 注意
 
@@ -313,6 +331,7 @@ npx prisma db push
 | --- | --- |
 | `DATABASE_URL` | 数据库连接串 |
 | `SESSION_SECRET` | 会话 cookie 的签名密钥，至少 32 位 |
+| `ADMIN_EMAILS` | v0.2 Alpha 管理员邮箱，多个用英文逗号分隔 |
 | `ISH_PG_BIN` | （可选）PostgreSQL 的 bin 目录，脚本找不到时手动指定 |
 
 `.env` 含密钥，**不进版本库**。每个人在自己机器上由 `setup.ps1` 生成一份。
@@ -331,3 +350,34 @@ npx prisma db push
 `fromish.com` 的生产部署说明见：[`deploy/DEPLOY_PRODUCTION.md`](deploy/DEPLOY_PRODUCTION.md)。
 
 首个公开 Alpha 的设计与已知限制见：[`docs/devlog/2026-09-08-v0.1-alpha-public.md`](docs/devlog/2026-09-08-v0.1-alpha-public.md)。
+
+
+# v0.2 Alpha · 第一条业务闭环
+
+## 用户流程
+
+1. 登录后从 Dashboard 点击「咩一个项目」；
+2. 填写项目标题、一句话介绍、项目说明；
+3. 提交后状态为 `PENDING`，项目页仅创作者本人和管理员可见；
+4. 管理员在 `/admin/moderation` 人工审核；
+5. 审核通过后状态变为 `PUBLISHED`，项目进入 `/projects` 公开列表；
+6. 审核退回后状态变为 `REJECTED`，创作者能看到明确退回原因；
+7. 每次通过 / 退回都会写入 `project_moderation_events`，保留治理留痕。
+
+## 管理员配置
+
+v0.2 Alpha 暂时通过服务端环境变量指定管理员：
+
+```env
+ADMIN_EMAILS="admin@example.com"
+```
+
+多个邮箱使用英文逗号分隔。该变量只在服务端读取，不要把真实生产管理员邮箱写入仓库。
+
+## 当前明确不做
+
+- 站内私信 / 群聊；
+- 用户上传 `.exe` / `.zip`；
+- 支付、众筹、托管资金；
+- 自动 AI 审核；
+- 项目修改后重新送审（后续版本单独设计）。

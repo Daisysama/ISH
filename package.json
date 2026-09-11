@@ -1,6 +1,6 @@
 {
   "name": "ish",
-  "version": "0.1.1",
+  "version": "0.2.0-alpha",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run build",
-    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "postinstall": "prisma generate"

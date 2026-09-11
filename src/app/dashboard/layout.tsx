@@ -1,6 +1,8 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { logoutAction } from '@/backend/auth/actions'
+import { isAdminEmail } from '@/backend/auth/admin'
 import { getCurrentUser } from '@/backend/auth/current-user'
 
 export default async function DashboardLayout({
@@ -13,13 +15,21 @@ export default async function DashboardLayout({
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
+  const isAdmin = isAdminEmail(user.email)
+
   return (
     <>
       <header className="app-header">
-        <div className="brand">
+        <Link className="brand brand-link" href="/dashboard">
           <div className="brandmark">ISH</div>
           <p className="brand-name">伊始</p>
-        </div>
+        </Link>
+
+        <nav className="app-nav" aria-label="主导航">
+          <Link href="/projects">公开项目</Link>
+          <Link href="/meow/new">咩</Link>
+          {isAdmin && <Link href="/admin/moderation">审核</Link>}
+        </nav>
 
         <div className="app-user">
           <span className="avatar">{user.displayName.slice(0, 1)}</span>
