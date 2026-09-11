@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 
-import { logoutAction } from '@/app/actions/auth'
-import { getCurrentUser } from '@/lib/auth'
+import { logoutAction } from '@/backend/auth/actions'
+import { getCurrentUser } from '@/backend/auth/current-user'
 
 export default async function DashboardLayout({
   children,

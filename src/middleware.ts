@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/session'
+import { SESSION_COOKIE_NAME, verifySessionToken } from '@/backend/auth/session'
 
 /**
  * 路由守卫。
