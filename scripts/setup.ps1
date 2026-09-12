@@ -84,7 +84,7 @@ if (Test-Path $EnvFile) {
 # 本地开发配置。这个文件不进版本库。
 DATABASE_URL="$DatabaseUrl"
 SESSION_SECRET="$secret"
-ADMIN_EMAILS=""
+SITE_OWNER_USER_ID=""
 "@ | Set-Content -Path $EnvFile -Encoding utf8
     Write-Ok "已生成（含随机会话密钥）"
 }

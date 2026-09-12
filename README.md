@@ -7,9 +7,9 @@
 以**项目**而不是职位为中心的开放协作平台。不是"公司先存在再招人"，
 而是"目标先存在，人因目标聚集，团队形成，组织甚至可以从项目里长出来"。
 
-**当前开发版本：** `v0.2.0-alpha`。在 v0.1.x 账户与公网部署基线之上，开始建立第一条核心业务闭环：**咩 → 项目主页 → 审核 → 发布**。
+**当前开发版本：** `v0.2.0-alpha`，在 v0.1.x 账户与公网部署基线之上开发。项目从发布、审核、响应到同行管理已接通；已发布内容修改需要再审。公共评论、项目动态、站内消息、网站公告、举报和申诉也已加入。网站管理员由站主按权限授权，重要治理操作留档。
 
-当前新增：项目提交、非公开预览、人工审核、公开项目列表、审核事件留痕。
+代码已进入开发分支审阅；不要把本地构建成功理解成生产验收完成。公网升级前请先阅读 [`deploy/DEPLOY_PRODUCTION.md`](deploy/DEPLOY_PRODUCTION.md) 并完成多账号权限和迁移演练。
 
 ---
 
@@ -66,6 +66,14 @@ git clone https://github.com/Daisysama/ISH.git
 ```powershell
 cd ISH
 ```
+
+PR #5 审阅期间，这份 v0.2 Alpha 代码仍在开发分支；想在本地验收本轮功能，请在仓库内执行：
+
+```powershell
+git switch feature/v0.2-meow
+```
+
+若 PR 合并后 `main` 已更新，则按当时的仓库状态选择分支。
 
 没装 git 的话，也可以在 GitHub 页面点 `Code` → `Download ZIP`，解压后进到那个文件夹。
 
@@ -210,7 +218,7 @@ createdb ish
 ```
 DATABASE_URL="postgresql://用户名:密码@127.0.0.1:5432/ish"
 SESSION_SECRET="一串至少32位的随机字符串"
-ADMIN_EMAILS="你的管理员登录邮箱"
+SITE_OWNER_USER_ID=""
 ```
 
 `SESSION_SECRET` 用这条命令生成一个：
@@ -218,6 +226,8 @@ ADMIN_EMAILS="你的管理员登录邮箱"
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
+
+先注册拟作为站主的账号，在“我的画像”展开“站主首次配置所需的内部编号”，将内部 UUID 填入 `.env` 的 `SITE_OWNER_USER_ID` 后重启。公开短 UID 不能用于此项；再由站主在治理页面授予网站管理员所需权限。
 
 **4. 应用数据库 migrations**
 
@@ -331,7 +341,7 @@ npx prisma migrate deploy
 | --- | --- |
 | `DATABASE_URL` | 数据库连接串 |
 | `SESSION_SECRET` | 会话 cookie 的签名密钥，至少 32 位 |
-| `ADMIN_EMAILS` | v0.2 Alpha 管理员邮箱，多个用英文逗号分隔 |
+| `SITE_OWNER_USER_ID` | 站主的内部 `users.id` UUID；创建站主账号后填写，管理员由站主在治理页面授权 |
 | `ISH_PG_BIN` | （可选）PostgreSQL 的 bin 目录，脚本找不到时手动指定 |
 
 `.env` 含密钥，**不进版本库**。每个人在自己机器上由 `setup.ps1` 生成一份。
@@ -352,32 +362,15 @@ npx prisma migrate deploy
 首个公开 Alpha 的设计与已知限制见：[`docs/devlog/2026-09-08-v0.1-alpha-public.md`](docs/devlog/2026-09-08-v0.1-alpha-public.md)。
 
 
-# v0.2 Alpha · 第一条业务闭环
+# v0.2 Alpha · 项目协作与治理
 
 ## 用户流程
 
-1. 登录后从 Dashboard 点击「咩一个项目」；
-2. 填写项目标题、一句话介绍、项目说明；
-3. 提交后状态为 `PENDING`，项目页仅创作者本人和管理员可见；
-4. 管理员在 `/admin/moderation` 人工审核；
-5. 审核通过后状态变为 `PUBLISHED`，项目进入 `/projects` 公开列表；
-6. 审核退回后状态变为 `REJECTED`，创作者能看到明确退回原因；
-7. 每次通过 / 退回都会写入 `project_moderation_events`，保留治理留痕。
+1. 注册后发起项目，提交待审版本；站主或获“项目审核”权限的网站管理员审核后公开，退回理由向发起人可见。
+2. 公开项目可响应加入，发起人审查响应者画像并管理同行者。移出成员后保留历史记录，成员可以要求发起人核查或向网站管理员独立申诉。
+3. 已发布项目的修改再次送审；项目动态与公开评论、回复等内容接入规则筛查、举报和人工纠错；相关人员收到站内通知。
+4. 站主在“治理 → 网站管理员”授予独立权限；网站公告的编辑、删除、置顶、恢复及治理操作留管理记录。
 
-## 管理员配置
+## 本轮后续
 
-v0.2 Alpha 暂时通过服务端环境变量指定管理员：
-
-```env
-ADMIN_EMAILS="admin@example.com"
-```
-
-多个邮箱使用英文逗号分隔。该变量只在服务端读取，不要把真实生产管理员邮箱写入仓库。
-
-## 当前明确不做
-
-- 站内私信 / 群聊；
-- 用户上传 `.exe` / `.zip`；
-- 支付、众筹、托管资金；
-- 自动 AI 审核；
-- 项目修改后重新送审（后续版本单独设计）。
+内部论坛、图片上传与图片审核、邮箱或手机验证码、防机器人滥用、任务与里程碑仍在规划中。路径和边界见 [`docs/product/NEXT_STAGE_MEDIA_AND_TRUST.md`](docs/product/NEXT_STAGE_MEDIA_AND_TRUST.md) 与 [`docs/product/CONTENT_GOVERNANCE_ROADMAP.md`](docs/product/CONTENT_GOVERNANCE_ROADMAP.md)。

@@ -3,8 +3,12 @@
 ## 根目录
 
 - `README.md`：项目入口、开发环境、当前能力和 v0.2 使用说明。
-- `.env.example`：本地环境变量示例；真实密钥和管理员邮箱不得提交。
+- `.env.example`：本地环境变量示例；站主内部 UUID 和真实密钥不得提交。
 - `package.json`：Node 依赖与开发/构建/Prisma 命令。
+
+## deploy/
+
+- `DEPLOY_PRODUCTION.md`：公网升级前的备份、全量迁移演练、站主配置与多账号验收清单；不是自动部署脚本。
 
 ## public/brand/
 
@@ -17,7 +21,7 @@
 - `schema.prisma`：User、Project、ProjectRevision、ProjectMembership、ProjectModerationEvent 及枚举模型。
 - `migrations/20260912000000_v0_1_baseline/`：v0.1.x users 表基线。
 - `migrations/20260912053000_add_meow_projects/`：新增项目与审核留痕表。
-- `README.md`：从 db push 切换到 migration 的安全流程。
+- `README.md`：从 db push 切换到 migration 的安全流程以及全量迁移演练要求。
 
 ## scripts/
 
@@ -49,7 +53,7 @@
 - `password.ts`：密码哈希、验证、邮箱标准化。
 - `session.ts`：JWT Session cookie。
 - `current-user.ts`：根据 Session 读取当前数据库用户。
-- `admin.ts`：v0.2 Alpha 基于 `ADMIN_EMAILS` 的服务端管理员判定。
+- `admin.ts`：通过 `SITE_OWNER_USER_ID` 认定站主，按数据库中被授予的权限判定网站管理员。
 
 ## src/backend/database/
 
@@ -550,3 +554,11 @@
 - `docs/devlog/2026-09-12-v0.2-response-profile-uid.md`：这轮的原因、行为、权限边界、验证与后续方向。
 - `docs/engineering/V0_2_PROFILE_NOTICES_WINDOWS_SETUP.md`：Windows PowerShell 逐条应用、迁移、构建与多角色验收说明。
 - `docs/product/NEXT_STAGE_MEDIA_AND_TRUST.md`：图片、增强审核、身份验证与背景音乐后续设计清单。
+
+## PR #5 审阅时的交接文档修正
+
+- `.env.example` / `scripts/setup.ps1`：创建开发环境时预留 `SITE_OWNER_USER_ID`；注册站主后填内部 UUID，不再生成无效的邮箱授权变量。
+- `README.md`：描述 PR 分支和当前 v0.2 协作、治理能力，给出首次站主配置入口。
+- `deploy/DEPLOY_PRODUCTION.md` / `prisma/README.md`：要求先在隔离环境演练所有待应用迁移，并按最新站主/管理员权限模型验收。
+- `docs/devlog/2026-09-12-v0.2-visual-pass.md`：移除文件末尾多余空行，使 Git 空白检查通过。
+- `docs/devlog/2026-09-12-v0.2-pr5-review-documentation.md`：记录本次审阅发现、修正思路、验证与后续安排。
