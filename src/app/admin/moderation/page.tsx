@@ -5,9 +5,14 @@ import { getCurrentAdmin } from '@/backend/auth/admin'
 import { db } from '@/backend/database/client'
 import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
 import { ModerationPanel } from '@/frontend/components/moderation/ModerationPanel'
-import { PROJECT_STAGE_LABELS } from '@/shared/project'
+import {
+  GROUP_ACCESS_LABELS,
+  PROJECT_AUDIENCE_LABELS,
+  PROJECT_PURPOSE_LABELS,
+  PROJECT_STAGE_LABELS,
+} from '@/shared/project'
 
-export const metadata = { title: '项目审核 · FromISH' }
+export const metadata = { title: '项目审核 · FromISH', robots: { index: false, follow: false } }
 export const dynamic = 'force-dynamic'
 
 export default async function ModerationPage() {
@@ -64,6 +69,8 @@ export default async function ModerationPage() {
 
                 <div className="moderation-facts">
                   <div><strong>阶段</strong><span>{PROJECT_STAGE_LABELS[project.stage]}</span></div>
+                  <div><strong>目的</strong><span>{PROJECT_PURPOSE_LABELS[project.purpose]}</span></div>
+                  <div><strong>受众</strong><span>{PROJECT_AUDIENCE_LABELS[project.audience]}</span></div>
                   <div><strong>类型</strong><span>{project.typeTags.join(' · ') || '未填写'}</span></div>
                   <div><strong>寻找</strong><span>{project.seekingTags.join(' · ') || '暂不招募'}</span></div>
                   <div><strong>平台</strong><span>{project.platforms.join(' · ') || '未指定'}</span></div>
@@ -79,7 +86,7 @@ export default async function ModerationPage() {
 
                 {(project.groupType || project.groupContact) && (
                   <div className="private-info-card">
-                    <strong>群聊信息 · 仅创作者与 ISH 可见</strong>
+                    <strong>群聊信息 · {GROUP_ACCESS_LABELS[project.groupAccessMode]}</strong>
                     <p>{project.groupType || '群聊'}：{project.groupContact || '未填写联系方式'}</p>
                     <p>{project.allowIshJoinGroup ? '创作者欢迎 ISH 加入群聊陪伴项目成长。' : '创作者暂未邀请 ISH 加入群聊。'}</p>
                   </div>

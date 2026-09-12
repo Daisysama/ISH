@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { LoginForm } from '@/frontend/components/auth/LoginForm'
 import { BrandHeader } from '@/frontend/components/brand/BrandHeader'
 
-export const metadata = { title: '登录 · FromISH' }
+export const metadata = { title: '登录 · FromISH', robots: { index: false, follow: false } }
 
 export default function LoginPage() {
   return (

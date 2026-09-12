@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { RegisterForm } from '@/frontend/components/auth/RegisterForm'
 import { BrandHeader } from '@/frontend/components/brand/BrandHeader'
 
-export const metadata = { title: '加入羊群 · FromISH' }
+export const metadata = { title: '加入羊群 · FromISH', robots: { index: false, follow: false } }
 
 export default function RegisterPage() {
   return (

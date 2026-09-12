@@ -17,6 +17,7 @@ export const PROJECT_LIMITS = {
   customTagMaxCount: 3,
   platformMaxCount: 5,
   groupContactMax: 300,
+  profileTagMaxCount: 20,
 } as const
 
 export const PROJECT_TYPE_OPTIONS = [
@@ -74,7 +75,7 @@ export const PLATFORM_OPTIONS = [
   'GitHub',
 ] as const
 
-export const GROUP_TYPE_OPTIONS = ['QQ群', 'Discord', '微信群', '飞书', '其他'] as const
+export const GROUP_TYPE_OPTIONS = ['QQ群', '微信群', '飞书', '其他'] as const
 
 export const PROJECT_STAGE_VALUES = [
   'IDEA',
@@ -84,7 +85,21 @@ export const PROJECT_STAGE_VALUES = [
   'DEMO',
   'DEVELOPING',
   'TEAM',
+  'COMPLETED',
+  'LIVE',
 ] as const
+
+export const PROJECT_PURPOSE_VALUES = [
+  'COLLABORATE',
+  'PLAYTEST',
+  'FEEDBACK',
+  'PROMOTE',
+  'SHARE',
+] as const
+
+export const PROJECT_AUDIENCE_VALUES = ['EVERYONE', 'COLLABORATORS', 'PLAYERS'] as const
+
+export const GROUP_ACCESS_VALUES = ['PUBLIC', 'APPROVAL_REQUIRED', 'PRIVATE'] as const
 
 const tagSchema = z
   .string()
@@ -139,6 +154,8 @@ export const projectSubmissionSchema = z.object({
     .max(PROJECT_LIMITS.descriptionMax, `补充说明最多 ${PROJECT_LIMITS.descriptionMax} 个字`)
     .transform((value) => (value === '' ? undefined : value)),
   stage: z.enum(PROJECT_STAGE_VALUES),
+  purpose: z.enum(PROJECT_PURPOSE_VALUES),
+  audience: z.enum(PROJECT_AUDIENCE_VALUES),
   typeTags: z
     .array(tagSchema)
     .min(1, '至少选一个项目类型')
@@ -155,6 +172,7 @@ export const projectSubmissionSchema = z.object({
     .trim()
     .max(30)
     .transform((value) => (value === '' ? undefined : value)),
+  groupAccessMode: z.enum(GROUP_ACCESS_VALUES),
   groupContact: z
     .string()
     .trim()
@@ -162,6 +180,14 @@ export const projectSubmissionSchema = z.object({
     .transform((value) => (value === '' ? undefined : value)),
   allowIshJoinGroup: z.boolean(),
 }).superRefine((value, ctx) => {
+  if (value.groupAccessMode !== 'PRIVATE' && !value.groupContact) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['groupContact'],
+      message: '选择公开或申请制群聊时，请留下群号、邀请链接或加群说明',
+    })
+  }
+
   if (value.allowIshJoinGroup && !value.groupContact) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

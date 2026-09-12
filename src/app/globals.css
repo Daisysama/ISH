@@ -767,16 +767,21 @@ a {
 
 .auth-landscape-glow {
   position: absolute;
-  width: 26vw;
-  max-width: 350px;
+  width: 28vw;
+  max-width: 360px;
   aspect-ratio: 1;
-  right: 5%;
+  right: 4%;
   top: 8%;
-  background: url('/brand/fromish-alpha-mark.png') center / cover no-repeat;
-  border-radius: 28%;
-  opacity: 0.12;
-  transform: rotate(6deg) scale(1.04);
-  filter: saturate(.45) contrast(.94);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 245, 214, 0.18) 0%,
+    rgba(255, 231, 181, 0.10) 35%,
+    rgba(255, 231, 181, 0) 72%
+  );
+  opacity: 1;
+  transform: none;
+  filter: blur(8px);
 }
 
 .auth-panel {
@@ -2085,4 +2090,33 @@ a {
     min-height: 34px;
     padding: 0 11px;
   }
+}
+
+/* B.2a-1: discovery / profile / project axes */
+.project-axis-row { display: flex; flex-wrap: wrap; gap: .42rem; margin: .25rem 0 .15rem; }
+.axis-pill { display: inline-flex; align-items: center; min-height: 26px; padding: .25rem .58rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: rgba(255,255,255,.58); font-size: .76rem; }
+.axis-pill-purpose { color: var(--green); background: rgba(23, 105, 77, .08); border-color: rgba(23, 105, 77, .14); }
+.profile-nudge, .platform-notice { display:flex; align-items:center; justify-content:space-between; gap:1rem; border:1px solid var(--line); border-radius:var(--radius-md); background:rgba(255,255,255,.62); padding:1rem 1.15rem; margin:0 0 1rem; }
+.profile-nudge p, .platform-notice p { margin:.2rem 0 0; color:var(--muted); }
+.discovery-filter { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin:1rem 0 1.5rem; }
+.discovery-filter select { min-height:42px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.78); padding:0 .75rem; color:var(--ink); }
+.platform-notice { margin-top:2rem; align-items:flex-start; }
+.platform-notice strong { white-space:nowrap; color:var(--green); }
+.profile-shell { width:min(980px, calc(100% - 32px)); margin:0 auto; padding:2rem 0 4rem; }
+.profile-heading { margin:1rem 0 1.5rem; max-width:720px; }
+.profile-heading h1 { margin:.35rem 0 .65rem; font-size:clamp(2rem, 5vw, 3.6rem); }
+.profile-heading p { color:var(--muted); font-size:1.02rem; }
+.profile-panel { padding:1.2rem; }
+.profile-form .form-section { border-top:1px solid var(--line); padding:1.4rem 0; }
+.profile-form .form-section:first-of-type { border-top:0; }
+.profile-submit-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding-top:1rem; }
+.profile-submit-row p { color:var(--muted); margin:0; }
+.choice-chip-future { opacity:.55; }
+.public-group-card { border:1px solid rgba(23,105,77,.16); background:rgba(23,105,77,.06); border-radius:16px; padding:1rem 1.1rem; margin-top:1rem; }
+.public-group-card p { margin:.4rem 0 0; }
+.notice-success { background:rgba(23,105,77,.08); border-color:rgba(23,105,77,.18); }
+@media (max-width: 720px) {
+  .profile-nudge, .platform-notice, .profile-submit-row { align-items:flex-start; flex-direction:column; }
+  .discovery-filter { align-items:stretch; }
+  .discovery-filter select, .discovery-filter .button { width:100%; }
 }

@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/backend/auth/current-user'
 import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
 
+export const metadata = { robots: { index: false, follow: false } }
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')

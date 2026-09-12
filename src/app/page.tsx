@@ -8,7 +8,7 @@ import { ProjectCard } from '@/frontend/components/projects/ProjectCard'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const [userId, projects] = await Promise.all([readSession(), listPublishedProjects()])
+  const [userId, projects] = await Promise.all([readSession(), listPublishedProjects({ sort: 'newest' })])
   const featured = projects.slice(0, 3)
 
   return (
@@ -71,6 +71,11 @@ export default async function HomePage() {
             <span className="path-arrow" aria-hidden="true">↗</span>
           </Link>
         </section>
+
+        <aside className="platform-notice platform-notice-home">
+          <strong>关于这里</strong>
+          <p>FromISH 是兴趣创作与共创交流平台。用户发布的项目、观点及外部链接不代表 ISH 立场；平台当前不提供招聘、猎头、投资撮合或融资服务。</p>
+        </aside>
 
         <section className="home-flock-section">
           <div className="section-title-row">

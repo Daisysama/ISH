@@ -46,7 +46,7 @@ export async function GlobalHeader({ active }: GlobalHeaderProps) {
         <div className="global-header-actions">
           {user ? (
             <>
-              <Link className="global-account" href="/dashboard">
+              <Link className="global-account" href="/profile">
                 <span className="avatar">{user.displayName.slice(0, 1)}</span>
                 <span className="global-account-copy">
                   <strong>{user.displayName}</strong>

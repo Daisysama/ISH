@@ -1,13 +1,23 @@
 import Link from 'next/link'
 
-import { PROJECT_STAGE_LABELS } from '@/shared/project'
-import type { ProjectStageValue } from '@/shared/project'
+import {
+  PROJECT_AUDIENCE_LABELS,
+  PROJECT_PURPOSE_LABELS,
+  PROJECT_STAGE_LABELS,
+} from '@/shared/project'
+import type {
+  ProjectAudienceValue,
+  ProjectPurposeValue,
+  ProjectStageValue,
+} from '@/shared/project'
 
 type PublicProjectCard = {
   id: string
   title: string
   summary: string
   stage: ProjectStageValue
+  purpose: ProjectPurposeValue
+  audience: ProjectAudienceValue
   typeTags: string[]
   seekingTags: string[]
   platforms: string[]
@@ -42,6 +52,10 @@ export function ProjectCard({ project, index = 0 }: { project: PublicProjectCard
         <div className="flock-card-meta">
           <span>{project.creator.displayName}</span>
           {project.publishedAt && <time dateTime={project.publishedAt.toISOString()}>{project.publishedAt.toLocaleDateString('zh-CN')}</time>}
+        </div>
+        <div className="project-axis-row">
+          <span className="axis-pill axis-pill-purpose">{PROJECT_PURPOSE_LABELS[project.purpose]}</span>
+          <span className="axis-pill">{PROJECT_AUDIENCE_LABELS[project.audience]}</span>
         </div>
         <h2><Link href={`/projects/${project.id}`}>{project.title}</Link></h2>
         <p>{project.summary}</p>

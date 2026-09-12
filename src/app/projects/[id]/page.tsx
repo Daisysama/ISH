@@ -7,7 +7,12 @@ import { isAdminEmail } from '@/backend/auth/admin'
 import { getProjectById } from '@/backend/projects/queries'
 import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
 import { ProjectStatusBadge } from '@/frontend/components/projects/ProjectStatusBadge'
-import { PROJECT_STAGE_LABELS } from '@/shared/project'
+import {
+  GROUP_ACCESS_LABELS,
+  PROJECT_AUDIENCE_LABELS,
+  PROJECT_PURPOSE_LABELS,
+  PROJECT_STAGE_LABELS,
+} from '@/shared/project'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,9 +22,19 @@ export async function generateMetadata({ params }: ProjectPageProps): Promise<Me
   const { id } = await params
   const project = await getProjectById(id)
 
-  if (!project || project.status !== 'PUBLISHED') return { title: '项目 · FromISH' }
+  if (!project || project.status !== 'PUBLISHED') return { title: '项目 · FromISH', robots: { index: false, follow: false } }
 
-  return { title: `${project.title} · FromISH`, description: project.summary }
+  return {
+    title: `${project.title} · FromISH`,
+    description: project.summary,
+    alternates: { canonical: `/projects/${project.id}` },
+    openGraph: {
+      title: `${project.title} · FromISH`,
+      description: project.summary,
+      url: `/projects/${project.id}`,
+      type: 'article',
+    },
+  }
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
@@ -76,6 +91,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
             <section className="project-facts-grid">
               <div><span>现在走到哪里</span><strong>{PROJECT_STAGE_LABELS[project.stage]}</strong></div>
+              <div><span>这声咩想干嘛</span><strong>{PROJECT_PURPOSE_LABELS[project.purpose]}</strong></div>
+              <div><span>主要想让谁听见</span><strong>{PROJECT_AUDIENCE_LABELS[project.audience]}</strong></div>
               <div><span>咩咩啊？</span><div className="tag-row">{project.typeTags.map((tag) => <span className="tag-chip" key={tag}>{tag}</span>)}</div></div>
               <div><span>想找什么样的羊</span><div className="tag-row">{project.seekingTags.length > 0 ? project.seekingTags.map((tag) => <span className="tag-chip tag-chip-green" key={tag}>{tag}</span>) : <em>暂不招募</em>}</div></div>
               <div><span>目标平台</span><div className="tag-row">{project.platforms.length > 0 ? project.platforms.map((tag) => <span className="tag-chip" key={tag}>{tag}</span>) : <em>还没定</em>}</div></div>
@@ -94,10 +111,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </section>
             )}
 
-            {(viewerIsCreator || viewerIsAdmin) && (project.groupType || project.groupContact) && (
+            {project.groupAccessMode === 'PUBLIC' && project.groupContact && (
+              <section className="public-group-card">
+                <strong>一起聊聊 · {GROUP_ACCESS_LABELS.PUBLIC}</strong>
+                <p>{project.groupType || '群聊'}：{project.groupContact}</p>
+              </section>
+            )}
+
+            {(viewerIsCreator || viewerIsAdmin) && project.groupAccessMode !== 'PUBLIC' && (project.groupType || project.groupContact) && (
               <section className="private-info-card">
-                <strong>群聊信息 · 仅你和 ISH 管理员可见</strong>
+                <strong>群聊信息 · {GROUP_ACCESS_LABELS[project.groupAccessMode]}</strong>
                 <p>{project.groupType || '群聊'}：{project.groupContact || '未填写联系方式'}</p>
+                {project.groupAccessMode === 'APPROVAL_REQUIRED' && <p>同行申请功能将在下一阶段开放；目前不会向普通用户展示群聊信息。</p>}
                 <p>{project.allowIshJoinGroup ? '你已邀请 ISH 加入群聊，陪伴项目成长。' : '目前没有邀请 ISH 加入群聊。'}</p>
               </section>
             )}

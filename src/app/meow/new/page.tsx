@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/backend/auth/current-user'
 import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
 import { MeowForm } from '@/frontend/components/projects/MeowForm'
 
-export const metadata = { title: '咩一个 · FromISH' }
+export const metadata = { title: '咩一个 · FromISH', robots: { index: false, follow: false } }
 
 export default async function NewMeowPage() {
   const user = await getCurrentUser()

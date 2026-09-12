@@ -75,3 +75,7 @@ ProjectModerationEvent（追加式留痕）
 - `src/frontend/components/projects/ProjectCard.tsx`：公开项目卡片展示项目类型、当前阶段及招募标签。
 
 群聊信息属于非公开协作信息，默认只向创作者与 ISH 管理员展示，不进入公开项目卡。
+
+### 发现与用户画像
+
+用户画像属于产品核心输入但保持自愿填写。纯校验规则放 `src/core/profile/`，数据库读写放 `src/backend/profile/`，交互组件放 `src/frontend/components/profile/`。公开发现与 SEO 必须使用相同的“什么是真正公开内容”边界，避免权限和搜索索引互相冲突。

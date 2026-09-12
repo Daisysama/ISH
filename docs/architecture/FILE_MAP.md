@@ -104,3 +104,15 @@
 - `src/frontend/components/projects/MeowForm.tsx`：标签化、低门槛项目发布表单。
 - `src/frontend/components/projects/ProjectCard.tsx`：羊群广场项目卡，展示类型标签、招募标签和项目阶段。
 - `prisma/migrations/20260912080000_structured_meow/migration.sql`：新增项目阶段、标签、平台、外链与群聊陪伴字段。
+
+## B.2a-1：发现、画像与 SEO
+
+- `src/core/profile/user-profile.ts`：用户自愿画像的标签与输入校验。
+- `src/backend/profile/actions.ts`：保存当前用户画像。
+- `src/backend/profile/queries.ts`：读取用户画像。
+- `src/frontend/components/profile/ProfileForm.tsx`：画像编辑表单。
+- `src/app/profile/page.tsx`：用户画像页面。
+- `src/app/robots.ts`：搜索引擎抓取边界。
+- `src/app/sitemap.ts`：公开项目 Sitemap。
+- `src/shared/site.ts`：公开站点 URL / canonical 辅助。
+- `docs/product/DISCOVERY_AND_ACCESS_PRINCIPLES.md`：发现、推荐、群聊开放原则。

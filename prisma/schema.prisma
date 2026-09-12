@@ -33,6 +33,14 @@ model User {
   createdProjects  Project[]                @relation("ProjectCreator")
   moderationEvents ProjectModerationEvent[] @relation("ProjectModerator")
 
+  /// 自愿填写的能力与兴趣画像。仅用于个性化推荐，不代表 ISH 认证。
+  skillTags      String[] @default([])
+  likeTags       String[] @default([])
+  dislikeTags    String[] @default([])
+  profileBio     String?  @db.Text
+  experienceText String?  @db.Text
+  portfolioUrl   String?
+
   @@map("users")
 }
 
@@ -52,6 +60,31 @@ enum ProjectStage {
   DEMO
   DEVELOPING
   TEAM
+  COMPLETED
+  LIVE
+}
+
+/// 一声“咩”当前最主要的目的。先保持单选，降低发布门槛。
+enum ProjectPurpose {
+  COLLABORATE
+  PLAYTEST
+  FEEDBACK
+  PROMOTE
+  SHARE
+}
+
+/// 主要希望被哪一类用户发现。当前用于推荐与筛选，不作为强制访问控制。
+enum ProjectAudience {
+  EVERYONE
+  COLLABORATORS
+  PLAYERS
+}
+
+/// 群聊信息的开放方式。
+enum GroupAccessMode {
+  PUBLIC
+  APPROVAL_REQUIRED
+  PRIVATE
 }
 
 /// 审核事件只追加不覆盖，用于保留治理动作历史。
@@ -71,16 +104,19 @@ model Project {
   description String? @db.Text
 
   /// 面向玩家和同行者展示的结构化信息。
-  stage       ProjectStage @default(IDEA)
-  typeTags    String[]     @default([])
-  seekingTags String[]     @default([])
-  platforms   String[]     @default([])
+  stage       ProjectStage    @default(IDEA)
+  purpose     ProjectPurpose  @default(COLLABORATE)
+  audience    ProjectAudience @default(EVERYONE)
+  typeTags    String[]        @default([])
+  seekingTags String[]        @default([])
+  platforms   String[]        @default([])
   externalUrl String?
 
-  /// 群聊信息默认仅创作者与 ISH 管理员可见，不进入公开卡片。
+  /// 群聊本身可以公开，也可以保密。申请制将在同行申请阶段真正放行。
   groupType         String?
-  groupContact      String? @db.Text
-  allowIshJoinGroup Boolean @default(false)
+  groupContact      String?         @db.Text
+  groupAccessMode   GroupAccessMode @default(PRIVATE)
+  allowIshJoinGroup Boolean         @default(false)
 
   status          ProjectStatus @default(PENDING)
   rejectionReason String?       @db.Text

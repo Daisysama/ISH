@@ -11,7 +11,7 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from '@/backend/auth/session'
  */
 
 /** 需要登录才能看的路径。 */
-const PROTECTED = ['/dashboard', '/meow', '/admin']
+const PROTECTED = ['/dashboard', '/meow', '/admin', '/profile']
 
 /** 已经登录的人不该再看到的路径（登录页、注册页）。 */
 const AUTH_ONLY = ['/login', '/register']

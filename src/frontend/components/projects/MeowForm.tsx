@@ -10,8 +10,19 @@ import {
   PROJECT_TYPE_OPTIONS,
   SEEKING_ROLE_OPTIONS,
 } from '@/core/meow/project'
-import { PROJECT_STAGE_LABELS } from '@/shared/project'
-import type { ProjectFormState, ProjectStageValue } from '@/shared/project'
+import {
+  GROUP_ACCESS_LABELS,
+  PROJECT_AUDIENCE_LABELS,
+  PROJECT_PURPOSE_LABELS,
+  PROJECT_STAGE_LABELS,
+} from '@/shared/project'
+import type {
+  GroupAccessModeValue,
+  ProjectAudienceValue,
+  ProjectFormState,
+  ProjectPurposeValue,
+  ProjectStageValue,
+} from '@/shared/project'
 
 function CheckboxChip({ name, value }: { name: string; value: string }) {
   return (
@@ -104,6 +115,36 @@ export function MeowForm() {
       <section className="form-section">
         <div className="form-section-heading">
           <span>04</span>
+          <div><h3>这声咩想干嘛？ *</h3><p>只选一个主要目的，别让发布变成填问卷。</p></div>
+        </div>
+        <div className="choice-grid choice-grid-purpose">
+          {(Object.entries(PROJECT_PURPOSE_LABELS) as [ProjectPurposeValue, string][]).map(([value, label], index) => (
+            <label className="choice-chip" key={value}>
+              <input defaultChecked={index === 0} name="purpose" type="radio" value={value} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-section-heading">
+          <span>05</span>
+          <div><h3>主要想让谁听见？ *</h3><p>这是推荐方向，不是把其他人锁在门外。</p></div>
+        </div>
+        <div className="choice-grid choice-grid-audience">
+          {(Object.entries(PROJECT_AUDIENCE_LABELS) as [ProjectAudienceValue, string][]).map(([value, label], index) => (
+            <label className="choice-chip" key={value}>
+              <input defaultChecked={index === 0} name="audience" type="radio" value={value} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-section-heading">
+          <span>06</span>
           <div><h3>想找什么样的羊？</h3><p>没有招募需求也可以留空。</p></div>
         </div>
 
@@ -120,7 +161,7 @@ export function MeowForm() {
 
       <section className="form-section">
         <div className="form-section-heading">
-          <span>05</span>
+          <span>07</span>
           <div><h3>已经做出点东西了？</h3><p>有平台、有 Demo、有页面，就让大家能直接找到它。</p></div>
         </div>
 
@@ -136,8 +177,8 @@ export function MeowForm() {
 
       <section className="form-section">
         <div className="form-section-heading">
-          <span>06</span>
-          <div><h3>已经有地方聊天了吗？</h3><p>群聊信息默认不会公开给所有访客。</p></div>
+          <span>08</span>
+          <div><h3>已经有地方聊天了吗？</h3><p>你自己决定群聊是公开、申请制还是先保密。</p></div>
         </div>
 
         <div className="field-row">
@@ -154,6 +195,25 @@ export function MeowForm() {
           </div>
         </div>
 
+        <div className="field">
+          <label>群聊怎么开放？</label>
+          <div className="choice-grid choice-grid-group-access">
+            {(Object.entries(GROUP_ACCESS_LABELS) as [GroupAccessModeValue, string][]).map(([value, label]) => (
+              <label className={`choice-chip ${value === 'APPROVAL_REQUIRED' ? 'choice-chip-future' : ''}`} key={value}>
+                <input
+                  defaultChecked={value === 'PRIVATE'}
+                  disabled={value === 'APPROVAL_REQUIRED'}
+                  name="groupAccessMode"
+                  type="radio"
+                  value={value}
+                />
+                <span>{label}{value === 'APPROVAL_REQUIRED' ? ' · 下一阶段开放' : ''}</span>
+              </label>
+            ))}
+          </div>
+          <span className="hint">公开适合试玩、宣传和玩家群；保密适合尚未准备接触路人的项目。</span>
+        </div>
+
         <label className="ish-companion-option">
           <input name="allowIshJoinGroup" type="checkbox" />
           <span>
@@ -165,7 +225,7 @@ export function MeowForm() {
 
       <section className="form-section">
         <div className="form-section-heading">
-          <span>07</span>
+          <span>09</span>
           <div><h3>还有什么想告诉羊群的吗？</h3><p>选填。世界观、玩法、开发计划，想说多少都可以。</p></div>
         </div>
 
