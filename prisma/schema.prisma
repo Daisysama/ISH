@@ -1,7 +1,9 @@
 // ISH 数据库结构定义。
 //
-// 改了这个文件之后，跑 `npx prisma db push` 把改动同步到数据库。
-// Prisma 会根据这里的定义自动生成带类型提示的查询代码。
+// v0.2 起进入可审计 migration 工作流：
+//   - 开发环境：npx prisma migrate dev
+//   - 生产环境：npx prisma migrate deploy
+// 不再使用 db push 直接修改生产结构。
 
 generator client {
   provider = "prisma-client-js"
@@ -13,11 +15,10 @@ datasource db {
 }
 
 /// 用户账号。
-///
-/// 这一版只存登录必需的信息。个人简介、技能标签、头像等等，
-/// 等真正有页面用到它们的时候再加。
 model User {
   id String @id @default(uuid())
+  /// 对外展示的短账号编号；UUID 仍作为内部关系与审计记录主键。
+  uid Int @unique @default(autoincrement())
 
   /// 登录用的邮箱。统一转成小写后存储，避免 Alice@x.com 和 alice@x.com 被当成两个人。
   email String @unique
@@ -31,5 +32,1312 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  createdProjects  Project[]                @relation("ProjectCreator")
+  moderationEvents ProjectModerationEvent[] @relation("ProjectModerator")
+
+  /// 自愿填写的能力与兴趣画像。仅用于个性化推荐，不代表 ISH 认证。
+  skillTags      String[] @default([])
+  likeTags       String[] @default([])
+  dislikeTags    String[] @default([])
+  profileBio     String?  @db.Text
+  experienceText String?  @db.Text
+  portfolioUrl   String?
+  publicProfileEnabled Boolean @default(false)
+
+  /// 用户可以关闭“感兴趣 / 不感兴趣”后的追问，减少打扰。
+  suppressInterestedPrompt    Boolean @default(false)
+  suppressNotInterestedPrompt Boolean @default(false)
+
+  projectPreferences ProjectPreference[]
+  hiddenProjects     HiddenProject[]
+  favoriteProjects   FavoriteProject[]
+  tagSignals         UserTagSignal[]
+  sentProjectResponses ProjectResponse[] @relation("ProjectResponder")
+  projectMemberships  ProjectMembership[]
+  submittedProjectRevisions ProjectRevision[] @relation("ProjectRevisionSubmitter")
+  reviewedProjectRevisions  ProjectRevision[] @relation("ProjectRevisionReviewer")
+  removedProjectMemberships ProjectMembership[] @relation("ProjectMembershipRemovedBy")
+  projectActivities          ProjectActivity[]   @relation("ProjectActivityActor")
+  submittedRemovalReviews    ProjectRemovalReview[] @relation("RemovalReviewAppellant")
+  decidedRemovalReviews      ProjectRemovalReview[] @relation("RemovalReviewDecider")
+  removalReviewEvents        ProjectRemovalReviewEvent[] @relation("RemovalReviewEventActor")
+  siteAdmin SiteAdmin?
+  notifications UserNotification[]
+  authoredProjectUpdates ProjectUpdate[] @relation("ProjectUpdateAuthor")
+  reviewedProjectUpdates ProjectUpdate[] @relation("ProjectUpdateReviewer")
+  projectUpdateEvents ProjectUpdateEvent[] @relation("ProjectUpdateEventActor")
+  reportedUpdates ProjectUpdateReport[] @relation("UpdateReporter")
+  reviewedUpdateReports ProjectUpdateReport[] @relation("UpdateReportReviewer")
+  authoredSiteAnnouncements SiteAnnouncement[] @relation("SiteAnnouncementAuthor")
+  blocksCreated UserBlock[] @relation("Blocker")
+  blockedByUsers UserBlock[] @relation("Blocked")
+  issuedSanctions UserSanction[] @relation("SanctionIssuer")
+  receivedSanctions UserSanction[] @relation("SanctionTarget")
+  sanctionAppeals UserSanctionAppeal[] @relation("SanctionAppellant")
+  reviewedSanctionAppeals UserSanctionAppeal[] @relation("SanctionAppealReviewer")
+  submittedProjectReports ProjectReport[] @relation("ProjectReporter")
+  reviewedProjectReports ProjectReport[] @relation("ProjectReportReviewer")
+  authoredComments ProjectComment[]
+  commentPreferences ProjectCommentPreference[]
+  submittedCommentReports ProjectCommentReport[]
+  userReportsFiled UserReport[] @relation("UserReportReporter")
+  userReportsReceived UserReport[] @relation("UserReportTarget")
+  userReportsReviewed UserReport[] @relation("UserReportReviewer")
+
   @@map("users")
+}
+
+/// “咩”从提交到公开的最小治理状态机。
+enum ProjectStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  HIDDEN
+}
+
+enum ProjectUpdateStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  HIDDEN
+}
+
+enum ProjectUpdateEventType {
+  SUBMITTED
+  APPROVED
+  AUTO_APPROVED
+  REJECTED
+  REOPENED
+  REVIEW_REQUESTED
+  HIDDEN
+}
+
+enum ScreeningRuleAction {
+  REVIEW
+  BLOCK
+}
+
+enum ScreeningResult {
+  CLEAR
+  REVIEW
+  BLOCK
+}
+
+enum UpdateReportStatus {
+  PENDING
+  RESOLVED
+}
+
+enum UpdateReportDecision {
+  NO_VIOLATION
+  CONTENT_REMOVED
+}
+
+/// 项目本身的成长阶段，与平台审核状态分离。
+enum ProjectStage {
+  IDEA
+  WRITING
+  CONCEPT
+  PROTOTYPE
+  DEMO
+  DEVELOPING
+  TEAM
+  COMPLETED
+  LIVE
+}
+
+/// 一声“咩”当前最主要的目的。先保持单选，降低发布门槛。
+enum ProjectPurpose {
+  COLLABORATE
+  PLAYTEST
+  FEEDBACK
+  PROMOTE
+  SHARE
+}
+
+/// 主要希望被哪一类用户发现。当前用于推荐与筛选，不作为强制访问控制。
+enum ProjectAudience {
+  EVERYONE
+  COLLABORATORS
+  PLAYERS
+}
+
+/// 群聊信息的开放方式。
+enum GroupAccessMode {
+  PUBLIC
+  APPROVAL_REQUIRED
+  PRIVATE
+}
+
+/// 用户对一声“咩”的行动回应。
+enum ProjectResponseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+/// 用户真正成为项目同行者后的成员状态。
+enum ProjectMembershipStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+/// 已发布项目的修改草稿审核状态。线上 Project 在审核通过前保持不变。
+enum ProjectRevisionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// 项目内部协作活动。只追加，不作为公开项目动态。
+enum ProjectActivityType {
+  MEMBER_JOINED
+  MEMBER_LEFT
+  MEMBER_REMOVED
+  MEMBER_RESTORED
+  MEMBER_PERMISSIONS_CHANGED
+}
+
+enum RemovalReviewRecipient {
+  FOUNDER
+  PLATFORM
+}
+
+enum RemovalReviewStatus {
+  PENDING
+  RESOLVED
+}
+
+enum RemovalReviewDecision {
+  RESTORED
+  DECLINED
+  NO_VIOLATION
+  RECORD_CORRECTION
+  MISCONDUCT
+}
+
+enum RemovalReviewEventType {
+  SUBMITTED
+  RESOLVED
+  REOPENED
+}
+
+/// 区分首次公开审核与已发布项目的修改再审。
+enum ProjectReviewType {
+  INITIAL
+  UPDATE
+}
+
+/// 审核事件只追加不覆盖，用于保留治理动作历史。
+enum ModerationAction {
+  APPROVED
+  REJECTED
+}
+
+model Project {
+  id String @id @default(uuid())
+
+  creatorId String
+  creator   User   @relation("ProjectCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String
+  description String? @db.Text
+
+  /// 面向玩家和同行者展示的结构化信息。
+  stage       ProjectStage    @default(IDEA)
+  purpose     ProjectPurpose  @default(COLLABORATE)
+  audience    ProjectAudience @default(EVERYONE)
+  typeTags    String[]        @default([])
+  seekingTags String[]        @default([])
+  platforms   String[]        @default([])
+  externalUrl String?
+
+  /// 群聊本身可以公开，也可以保密。申请制将在同行申请阶段真正放行。
+  groupType         String?
+  groupContact      String?         @db.Text
+  groupAccessMode   GroupAccessMode @default(PRIVATE)
+  allowIshJoinGroup Boolean         @default(false)
+
+  status          ProjectStatus @default(PENDING)
+  rejectionReason String?       @db.Text
+
+  /// 当前公开版本号。首次公开为 V1；修改审核通过后原子升级。
+  version Int @default(1)
+
+  submittedAt DateTime  @default(now())
+  reviewedAt  DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  moderationEvents  ProjectModerationEvent[]
+  userPreferences   ProjectPreference[]
+  hiddenByUsers     HiddenProject[]
+  favoritedByUsers  FavoriteProject[]
+  responses          ProjectResponse[]
+  memberships        ProjectMembership[]
+  revisions          ProjectRevision[]
+  activities         ProjectActivity[]
+  removalReviews     ProjectRemovalReview[]
+  removalRecords     ProjectRemovalRecord[]
+  updates            ProjectUpdate[]
+  reports            ProjectReport[]
+  comments           ProjectComment[]
+
+  @@index([status, submittedAt])
+  @@index([creatorId, createdAt])
+  @@map("projects")
+}
+
+/// 对外项目动态不同于项目内部活动，须先审核，再按发布时间公开。
+model ProjectUpdate {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId String?
+  author User? @relation("ProjectUpdateAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  authorNameSnapshot String
+  title String
+  body String @db.Text
+  status ProjectUpdateStatus @default(PENDING)
+  rejectionReason String? @db.Text
+  submittedAt DateTime @default(now())
+  publishedAt DateTime?
+  reviewedAt DateTime?
+  reviewedById String?
+  reviewedBy User? @relation("ProjectUpdateReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events ProjectUpdateEvent[]
+  scan ProjectUpdateScan?
+  reports ProjectUpdateReport[]
+  hiddenAppeals ProjectUpdateRemovalAppeal[]
+  comments ProjectComment[]
+
+  @@index([status, submittedAt])
+  @@index([projectId, status, publishedAt])
+  @@index([authorId, status, submittedAt])
+  @@map("project_updates")
+}
+
+/// 提交、通过与退回是追加式事件，旧文案不因后续治理被覆盖。
+model ProjectUpdateEvent {
+  id String @id @default(uuid())
+  updateId String
+  update ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  actor User? @relation("ProjectUpdateEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  type ProjectUpdateEventType
+  previousStatus ProjectUpdateStatus?
+  previousReasonSnapshot String?
+  previousReviewerIdSnapshot String?
+  previousReviewedAtSnapshot DateTime?
+  note String? @db.Text
+  createdAt DateTime @default(now())
+  hiddenAppeal ProjectUpdateRemovalAppeal?
+
+  @@index([updateId, createdAt])
+  @@map("project_update_events")
+}
+
+/// 纯文字规则仅辅助分流；规则变更必须留下原版本与理由。
+model ScreeningRule {
+  id String @id @default(uuid())
+  phrase String
+  normalizedPhrase String @unique
+  action ScreeningRuleAction
+  active Boolean @default(true)
+  version Int @default(1)
+  createdById String
+  updatedById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events ScreeningRuleEvent[]
+
+  @@index([active, action])
+  @@map("screening_rules")
+}
+
+model ScreeningRuleEvent {
+  id String @id @default(uuid())
+  ruleId String
+  rule ScreeningRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  actorUserId String
+  before Json?
+  after Json
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ruleId, createdAt])
+  @@map("screening_rule_events")
+}
+
+model ProjectUpdateScan {
+  id String @id @default(uuid())
+  updateId String @unique
+  update ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Restrict)
+  result ScreeningResult
+  textHash String
+  matchedRules Json
+  createdAt DateTime @default(now())
+
+  @@map("project_update_scans")
+}
+
+/// 仅能举报公开的项目动态；举报人身份不披露给项目发起人。
+model ProjectUpdateReport {
+  id String @id @default(uuid())
+  updateId String
+  update ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Restrict)
+  reporterId String
+  reporter User @relation("UpdateReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  reason String
+  statement String @db.Text
+  titleSnapshot String
+  bodySnapshot String @db.Text
+  status UpdateReportStatus @default(PENDING)
+  decision UpdateReportDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedBy User? @relation("UpdateReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectUpdateReportEvent[]
+
+  @@unique([updateId, reporterId])
+  @@index([status, createdAt])
+  @@map("project_update_reports")
+}
+
+model ProjectUpdateReportEvent {
+  id String @id @default(uuid())
+  reportId String
+  report ProjectUpdateReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  note String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("project_update_report_events")
+}
+
+enum UpdateRemovalAppealStatus {
+  PENDING
+  RESOLVED
+}
+
+enum UpdateRemovalAppealDecision {
+  UPHELD
+  REOPENED
+}
+
+/// 每次下架事件各有一次独立申诉机会；举报人身份不向作者披露。
+model ProjectUpdateRemovalAppeal {
+  id String @id @default(uuid())
+  updateId String
+  update ProjectUpdate @relation(fields: [updateId], references: [id], onDelete: Restrict)
+  hiddenEventId String @unique
+  hiddenEvent ProjectUpdateEvent @relation(fields: [hiddenEventId], references: [id], onDelete: Restrict)
+  appellantId String
+  originalReviewerId String?
+  reporterIdSnapshot String?
+  reasonSnapshot String @db.Text
+  statement String @db.Text
+  status UpdateRemovalAppealStatus @default(PENDING)
+  decision UpdateRemovalAppealDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectUpdateRemovalAppealEvent[]
+
+  @@index([status, createdAt])
+  @@index([updateId, createdAt])
+  @@map("project_update_removal_appeals")
+}
+
+model ProjectUpdateRemovalAppealEvent {
+  id String @id @default(uuid())
+  appealId String
+  appeal ProjectUpdateRemovalAppeal @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([appealId, createdAt])
+  @@map("project_update_removal_appeal_events")
+}
+
+enum SiteAnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  WITHDRAWN
+}
+
+model SiteAnnouncement {
+  id String @id @default(uuid())
+  authorId String
+  author User @relation("SiteAnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  title String
+  body String @db.Text
+  status SiteAnnouncementStatus @default(DRAFT)
+  pinnedAt DateTime?
+  publishedAt DateTime?
+  withdrawnAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events SiteAnnouncementEvent[]
+
+  @@index([status, publishedAt])
+  @@index([status, pinnedAt])
+  @@map("site_announcements")
+}
+
+model SiteAnnouncementEvent {
+  id String @id @default(uuid())
+  announcementId String
+  announcement SiteAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  titleSnapshot String
+  bodySnapshot String @db.Text
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([announcementId, createdAt])
+  @@map("site_announcement_events")
+}
+
+enum UserReportStatus {
+  PENDING
+  WITHDRAWN
+  RESOLVED
+}
+
+/// Independent account report; the complaint is never an automatic finding or sanction.
+model UserReport {
+  id String @id @default(uuid())
+  reporterId String
+  reporter User @relation("UserReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  targetId String
+  target User @relation("UserReportTarget", fields: [targetId], references: [id], onDelete: Restrict)
+  targetNameSnapshot String
+  category String
+  statement String @db.Text
+  status UserReportStatus @default(PENDING)
+  decision String?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedBy User? @relation("UserReportReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events UserReportEvent[]
+
+  @@index([status, createdAt])
+  @@index([reporterId, targetId, createdAt])
+  @@index([targetId, status])
+  @@map("user_reports")
+}
+
+model UserReportEvent {
+  id String @id @default(uuid())
+  reportId String
+  report UserReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  note String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("user_report_events")
+}
+
+/// 个人边界，不是平台处分；拉黑不改变申诉和历史权益。
+model UserBlock {
+  id String @id @default(uuid())
+  blockerId String
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Restrict)
+  blockedId String
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Restrict)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  clearedAt DateTime?
+  events UserBlockEvent[]
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId, active])
+  @@map("user_blocks")
+}
+
+model UserBlockEvent {
+  id String @id @default(uuid())
+  blockId String
+  block UserBlock @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  createdAt DateTime @default(now())
+
+  @@index([blockId, createdAt])
+  @@map("user_block_events")
+}
+
+enum UserSanctionScope {
+  POSTING
+  ACCOUNT
+  COMMENTS
+  PROJECTS
+  RESPONSES
+  SITE
+}
+
+enum UserSanctionStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum SanctionAppealStatus {
+  PENDING
+  RESOLVED
+}
+
+enum SanctionAppealDecision {
+  UPHELD
+  REVOKED
+}
+
+/// 平台处分按稳定用户 ID 生效；即使过期也保留原始处分与申诉记录。
+model UserSanction {
+  id String @id @default(uuid())
+  targetId String
+  target User @relation("SanctionTarget", fields: [targetId], references: [id], onDelete: Restrict)
+  issuedById String
+  issuedBy User @relation("SanctionIssuer", fields: [issuedById], references: [id], onDelete: Restrict)
+  scope UserSanctionScope
+  reason String @db.Text
+  status UserSanctionStatus @default(ACTIVE)
+  expiresAt DateTime?
+  revokedAt DateTime?
+  revokedById String?
+  revokeReason String? @db.Text
+  createdAt DateTime @default(now())
+  events UserSanctionEvent[]
+  appeal UserSanctionAppeal?
+
+  @@index([targetId, status, expiresAt])
+  @@map("user_sanctions")
+}
+
+model UserSanctionEvent {
+  id String @id @default(uuid())
+  sanctionId String
+  sanction UserSanction @relation(fields: [sanctionId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([sanctionId, createdAt])
+  @@map("user_sanction_events")
+}
+
+model UserSanctionAppeal {
+  id String @id @default(uuid())
+  sanctionId String @unique
+  sanction UserSanction @relation(fields: [sanctionId], references: [id], onDelete: Restrict)
+  appellantId String
+  appellant User @relation("SanctionAppellant", fields: [appellantId], references: [id], onDelete: Restrict)
+  statement String @db.Text
+  reasonSnapshot String @db.Text
+  status SanctionAppealStatus @default(PENDING)
+  decision SanctionAppealDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedBy User? @relation("SanctionAppealReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events UserSanctionAppealEvent[]
+
+  @@index([status, createdAt])
+  @@map("user_sanction_appeals")
+}
+
+model UserSanctionAppealEvent {
+  id String @id @default(uuid())
+  appealId String
+  appeal UserSanctionAppeal @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([appealId, createdAt])
+  @@map("user_sanction_appeal_events")
+}
+
+/// 全站动态「未命中规则即发布」开关，默认关闭，仅站主修改，历史作为独立事件保存。
+model ContentScreeningPolicy {
+  id String @id @default("site")
+  autoApproveClearUpdates Boolean @default(false)
+  updatedById String?
+  updatedAt DateTime @updatedAt
+  events ContentScreeningPolicyEvent[]
+
+  @@map("content_screening_policy")
+}
+
+model ContentScreeningPolicyEvent {
+  id String @id @default(uuid())
+  policyId String
+  policy ContentScreeningPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  actorUserId String
+  before Boolean
+  after Boolean
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([policyId, createdAt])
+  @@map("content_screening_policy_events")
+}
+
+enum ProjectReportStatus {
+  PENDING
+  RESOLVED
+}
+
+enum ProjectReportDecision {
+  NO_VIOLATION
+  UNLISTED
+}
+
+enum ProjectReportAppealDecision {
+  UPHELD
+  RESTORED
+}
+
+/// 针对项目当前公开版举报；标题、描述和标签固定快照，发起人不能改写原举报证据。
+model ProjectReport {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  reporterId String
+  reporter User @relation("ProjectReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  category String
+  statement String @db.Text
+  titleSnapshot String
+  summarySnapshot String @db.Text
+  descriptionSnapshot String? @db.Text
+  tagsSnapshot Json
+  versionSnapshot Int
+  status ProjectReportStatus @default(PENDING)
+  decision ProjectReportDecision?
+  mergedIntoId String?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedBy User? @relation("ProjectReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectReportEvent[]
+  appeal ProjectReportAppeal?
+
+  @@unique([projectId, reporterId, versionSnapshot])
+  @@index([status, createdAt])
+  @@map("project_reports")
+}
+
+model ProjectReportEvent {
+  id String @id @default(uuid())
+  reportId String
+  report ProjectReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  note String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("project_report_events")
+}
+
+/// 项目发起人针对本次下架的独立复核；原裁决人与举报人须回避。
+model ProjectReportAppeal {
+  id String @id @default(uuid())
+  reportId String @unique
+  report ProjectReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  appellantId String
+  originalReviewerId String?
+  reporterIdSnapshot String
+  reasonSnapshot String @db.Text
+  statement String @db.Text
+  status ProjectReportStatus @default(PENDING)
+  decision ProjectReportAppealDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectReportAppealEvent[]
+
+  @@index([status, createdAt])
+  @@map("project_report_appeals")
+}
+
+model ProjectReportAppealEvent {
+  id String @id @default(uuid())
+  appealId String
+  appeal ProjectReportAppeal @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([appealId, createdAt])
+  @@map("project_report_appeal_events")
+}
+
+
+/// 用户对单个项目的私人推荐信号，不作为公开点赞数。
+enum ProjectPreferenceKind {
+  INTERESTED
+  NOT_INTERESTED
+}
+
+/// 系统从用户行为中逐渐学到的弱偏好；用户明确填写的画像仍然优先。
+model UserTagSignal {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tag       String
+  score     Int      @default(0)
+  lastSource String   @default("PROJECT_INTERACTION")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tag])
+  @@index([userId, score])
+  @@map("user_tag_signals")
+}
+
+/// “感兴趣 / 不感兴趣”首先服务私人推荐，不公开计数。
+model ProjectPreference {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  kind                 ProjectPreferenceKind
+  selectedTags         String[]              @default([])
+  inferredFromProject Boolean               @default(false)
+  createdAt           DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([userId, projectId])
+  @@map("project_preferences")
+}
+
+/// 用户主动隐藏的项目。与“感兴趣 / 不感兴趣”彻底分离，避免关闭偏好追问后失去隐藏能力。
+model HiddenProject {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+  @@index([userId, createdAt])
+  @@map("hidden_projects")
+}
+
+
+/// 私人收藏。单个用户是否收藏不公开，但聚合数量可以用于排序。
+model FavoriteProject {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("favorite_projects")
+}
+
+
+/// “咩！（响应）”：用户明确表达想参与项目。
+/// 与“感兴趣”不同，这是会被创作者看到并需要处理的行动申请。
+model ProjectResponse {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  responderId String
+  responder   User   @relation("ProjectResponder", fields: [responderId], references: [id], onDelete: Cascade)
+
+  /// 响应者想以什么身份参与，例如原画 / 玩家试玩 / 测试反馈。
+  roles   String[] @default([])
+  message String?  @db.Text
+
+  status       ProjectResponseStatus @default(PENDING)
+  decisionNote String?               @db.Text
+  reviewedAt   DateTime?
+
+  /// 创作者处理后的结果是否已经被响应者看到。
+  /// PENDING 不靠该字段计数；APPROVED / REJECTED 在响应者进入回应中心后标记已读。
+  responderDecisionSeenAt DateTime?
+
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  membership ProjectMembership? @relation("MembershipSourceResponse")
+
+  @@unique([projectId, responderId])
+  @@index([projectId, status, createdAt])
+  @@index([responderId, status, createdAt])
+  @@index([responderId, status, responderDecisionSeenAt])
+  @@map("project_responses")
+}
+
+
+/// 创作者接受响应后建立的真实项目成员关系。
+/// 新同行者默认没有任何编辑权限；未来由项目发起人显式授予，不做时间到期自动解锁。
+model ProjectMembership {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 成员加入项目时选择/确认的同行身份，例如原画、程序、玩家试玩。
+  roles String[] @default([])
+
+  /// 预留给未来“发起人授予编辑/治理能力”；当前新成员始终为空。
+  permissions String[] @default([])
+
+  status ProjectMembershipStatus @default(ACTIVE)
+
+  sourceResponseId String?          @unique
+  sourceResponse   ProjectResponse? @relation("MembershipSourceResponse", fields: [sourceResponseId], references: [id], onDelete: SetNull)
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  /// 主动退出或被移除时必须留下说明；历史关系保留，不做物理删除。
+  departureReason String? @db.Text
+  removedByUserId String?
+  removedBy User? @relation("ProjectMembershipRemovedBy", fields: [removedByUserId], references: [id], onDelete: SetNull)
+  removalReviews ProjectRemovalReview[]
+  removalRecords ProjectRemovalRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId])
+  @@index([projectId, status, joinedAt])
+  @@index([userId, status, joinedAt])
+  @@map("project_memberships")
+}
+
+/// 项目内部活动流。成员加入、退出、移除等协作事件在这里永久留痕。
+/// 该时间线不是公网动态；移除理由等敏感协作信息仅向项目当前团队展示。
+model ProjectActivity {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  actorUserId String?
+  actor       User?   @relation("ProjectActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  type    ProjectActivityType
+  summary String
+  reason  String? @db.Text
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("project_activities")
+}
+
+/// 每次移出一条不可覆盖的事实回执。即使发起人随后恢复同行也不删除。
+model ProjectRemovalRecord {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  membershipId String
+  membership ProjectMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  removedAt DateTime
+  removedByUserIdSnapshot String
+  removedByNameSnapshot String
+  reasonSnapshot String @db.Text
+  createdAt DateTime @default(now())
+  reviews ProjectRemovalReview[]
+
+  @@unique([membershipId, removedAt])
+  @@index([projectId, removedAt])
+  @@map("project_removal_records")
+}
+
+/// 每次移出均可分别向发起人和平台提出一次复核。两个受理通道互不替代。
+/// 申诉时固化原始移出理由、时间及操作人；原记录不得被裁决覆盖。
+model ProjectRemovalReview {
+  id String @id @default(uuid())
+
+  removalId String
+  removal ProjectRemovalRecord @relation(fields: [removalId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  membershipId String
+  membership ProjectMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  appellantUserId String
+  appellant User @relation("RemovalReviewAppellant", fields: [appellantUserId], references: [id], onDelete: Cascade)
+
+  removedAt DateTime
+  removedByNameSnapshot String
+  removalReasonSnapshot String @db.Text
+  recipient RemovalReviewRecipient
+  category String
+  statement String @db.Text
+
+  status RemovalReviewStatus @default(PENDING)
+  decision RemovalReviewDecision?
+  decisionReason String? @db.Text
+  decidedByUserId String?
+  decidedBy User? @relation("RemovalReviewDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  decidedAt DateTime?
+  /// 申请人打开该项目的复核页后标记结果已看；不改变审查事件。
+  appellantDecisionSeenAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectRemovalReviewEvent[]
+
+  @@unique([removalId, recipient])
+  @@index([recipient, status, createdAt])
+  @@index([appellantUserId, createdAt])
+  @@index([appellantUserId, status, appellantDecisionSeenAt])
+  @@map("project_removal_reviews")
+}
+
+/// 申诉事件只追加。创作者和网站管理员的决定均有独立署名与时间。
+model ProjectRemovalReviewEvent {
+  id String @id @default(uuid())
+  reviewId String
+  review ProjectRemovalReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  actor User? @relation("RemovalReviewEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  type RemovalReviewEventType
+  note String? @db.Text
+  /// 重开时保存被撤销的裁决及署名快照；历史决议不因重审丢失。
+  decisionSnapshot RemovalReviewDecision?
+  decisionReasonSnapshot String? @db.Text
+  deciderUserIdSnapshot String?
+  deciderNameSnapshot String?
+  decidedAtSnapshot DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([reviewId, createdAt])
+  @@map("project_removal_review_events")
+}
+
+
+
+/// 已发布项目的修改草稿。
+/// 草稿在 PENDING / REJECTED 阶段与线上 Project 完全分离；只有审核通过时才覆盖公开字段。
+model ProjectRevision {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  version Int
+
+  title       String
+  summary     String
+  description String? @db.Text
+
+  stage       ProjectStage
+  purpose     ProjectPurpose
+  audience    ProjectAudience
+  typeTags    String[] @default([])
+  seekingTags String[] @default([])
+  platforms   String[] @default([])
+  externalUrl String?
+
+  groupType         String?
+  groupContact      String?         @db.Text
+  groupAccessMode   GroupAccessMode @default(PRIVATE)
+  allowIshJoinGroup Boolean         @default(false)
+
+  status          ProjectRevisionStatus @default(PENDING)
+  rejectionReason String?               @db.Text
+
+  submittedById String
+  submittedBy   User   @relation("ProjectRevisionSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+
+  reviewedById String?
+  reviewedBy   User?   @relation("ProjectRevisionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  submittedAt DateTime  @default(now())
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  moderationEvents ProjectModerationEvent[]
+
+  @@unique([projectId, version])
+  @@index([projectId, status, submittedAt])
+  @@index([status, submittedAt])
+  @@map("project_revisions")
+}
+
+model ProjectModerationEvent {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  moderatorId String?
+  moderator   User?   @relation("ProjectModerator", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  action     ModerationAction
+  reviewType ProjectReviewType @default(INITIAL)
+  note       String?           @db.Text
+
+  revisionId String?
+  revision   ProjectRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([moderatorId, createdAt])
+  @@index([revisionId, createdAt])
+  @@map("project_moderation_events")
+}
+
+/// 网站站主由服务端 SITE_OWNER_USER_ID 绑定既有稳定 User ID；此表只记录被授权的管理员。
+model SiteAdmin {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions String[] @default([])
+  active Boolean @default(true)
+  assignedById String
+  assignedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@map("site_admins")
+}
+
+/// 站主授权与撤销追加记录，保留旧权限、操作人及原因。
+model SiteGovernanceEvent {
+  id String @id @default(uuid())
+  actorUserId String
+  targetUserId String
+  action String
+  beforePermissions String[] @default([])
+  afterPermissions String[] @default([])
+  reason String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetUserId, createdAt])
+  @@map("site_governance_events")
+}
+
+/// 本人可见、可标已读的站内提醒。sourceKey 保证同一事件不会重复通知同一用户。
+model UserNotification {
+  id String @id @default(uuid())
+  recipientUserId String
+  recipient User @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  sourceKey String
+  type String
+  title String
+  summary String? @db.Text
+  href String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([recipientUserId, sourceKey])
+  @@index([recipientUserId, readAt, createdAt])
+  @@map("user_notifications")
+}
+
+enum ProjectCommentStatus {
+  PENDING
+  VISIBLE
+  DELETED
+  HIDDEN
+}
+
+enum ProjectCommentReaction {
+  LIKE
+  DISLIKE
+}
+
+enum ProjectCommentReportStatus {
+  PENDING
+  WITHDRAWN
+  RESOLVED
+}
+
+enum ProjectCommentReportDecision {
+  NO_VIOLATION
+  HIDDEN
+  AUTHOR_REMOVED
+}
+
+/// 项目或其公开动态的评论，回复至多一层。删除只改状态，原文在审计中保留。
+model ProjectComment {
+  id String @id @default(uuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  updateId String?
+  update ProjectUpdate? @relation(fields: [updateId], references: [id], onDelete: Restrict)
+  parentId String?
+  parent ProjectComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  replies ProjectComment[] @relation("CommentReplies")
+  authorId String
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  authorNameSnapshot String
+  body String @db.Text
+  status ProjectCommentStatus @default(VISIBLE)
+  screeningResult ScreeningResult @default(CLEAR)
+  matchedRules Json?
+  hiddenReason String? @db.Text
+  hiddenById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events ProjectCommentEvent[]
+  preferences ProjectCommentPreference[]
+  reports ProjectCommentReport[]
+  appeal ProjectCommentAppeal?
+
+  @@index([projectId, updateId, status, createdAt])
+  @@index([parentId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("project_comments")
+}
+
+/// 发表、删除、恢复、审核、表态、私人屏蔽均追加事件。
+model ProjectCommentEvent {
+  id String @id @default(uuid())
+  commentId String
+  comment ProjectComment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  actorUserId String?
+  action String
+  bodySnapshot String? @db.Text
+  note String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([commentId, createdAt])
+  @@map("project_comment_events")
+}
+
+model ProjectCommentPreference {
+  id String @id @default(uuid())
+  commentId String
+  comment ProjectComment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reaction ProjectCommentReaction?
+  hidden Boolean @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([commentId, userId])
+  @@index([userId, hidden])
+  @@map("project_comment_preferences")
+}
+
+/// 举报原文快照不可覆盖，撤回或裁决追加事件；被举报人看不到举报者陈述。
+model ProjectCommentReport {
+  id String @id @default(uuid())
+  commentId String
+  comment ProjectComment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  reporterId String
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Restrict)
+  category String
+  statement String @db.Text
+  bodySnapshot String @db.Text
+  status ProjectCommentReportStatus @default(PENDING)
+  retractedAt DateTime?
+  decision ProjectCommentReportDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectCommentReportEvent[]
+  appeal ProjectCommentAppeal?
+
+  @@index([commentId, reporterId])
+  @@index([status, createdAt])
+  @@map("project_comment_reports")
+}
+
+model ProjectCommentReportEvent {
+  id String @id @default(uuid())
+  reportId String
+  report ProjectCommentReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  note String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("project_comment_report_events")
+}
+
+model ProjectCommentAppeal {
+  id String @id @default(uuid())
+  commentId String @unique
+  comment ProjectComment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  reportId String? @unique
+  report ProjectCommentReport? @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  appellantId String
+  originalReviewerId String?
+  reporterIdSnapshot String?
+  reasonSnapshot String @db.Text
+  statement String @db.Text
+  status UpdateRemovalAppealStatus @default(PENDING)
+  decision UpdateRemovalAppealDecision?
+  decisionReason String? @db.Text
+  reviewedById String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  events ProjectCommentAppealEvent[]
+
+  @@index([status, createdAt])
+  @@map("project_comment_appeals")
+}
+
+model ProjectCommentAppealEvent {
+  id String @id @default(uuid())
+  appealId String
+  appeal ProjectCommentAppeal @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  actorUserId String
+  action String
+  note String @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([appealId, createdAt])
+  @@map("project_comment_appeal_events")
 }

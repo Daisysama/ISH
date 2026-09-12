@@ -5,7 +5,7 @@
       1. 装 Node 依赖
       2. 在 .pgdata\ 建一个项目专用的 PostgreSQL（不碰系统里已有的实例）
       3. 生成 .env（含随机的会话密钥）
-      4. 按 prisma\schema.prisma 建表
+      4. 按 prisma\migrations 建表 / 升级数据库
 
     可以重复执行，已经做过的步骤会跳过。
 #>
@@ -84,19 +84,21 @@ if (Test-Path $EnvFile) {
 # 本地开发配置。这个文件不进版本库。
 DATABASE_URL="$DatabaseUrl"
 SESSION_SECRET="$secret"
+SITE_OWNER_USER_ID=""
 "@ | Set-Content -Path $EnvFile -Encoding utf8
     Write-Ok "已生成（含随机会话密钥）"
 }
 
-# ---------------------------------------------------------------- 4. 建表
+# ---------------------------------------------------------------- 4. Migration
 
 Write-Step "同步数据库结构"
-Push-Location $Root
-npx prisma db push
-$exit = $LASTEXITCODE
-Pop-Location
-if ($exit -ne 0) { Fail "建表失败。" }
-Write-Ok "完成"
+$migrationScript = Join-Path $PSScriptRoot 'migrate-local.ps1'
+& $migrationScript
+$migrationInvocationOk = $?
+if (-not $migrationInvocationOk -or $LASTEXITCODE -ne 0) {
+    Fail "数据库 migration 失败。请检查上方 migrate-local.ps1 的错误输出。"
+}
+Write-Ok "数据库 migration 与 Prisma Client 同步完成"
 
 Write-Host ""
 Write-Host "搭建完成。" -ForegroundColor Green

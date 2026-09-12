@@ -14,6 +14,13 @@ import { createSession, destroySession } from '@/backend/auth/session'
 import { db } from '@/backend/database/client'
 import type { FormState } from '@/shared/auth'
 
+function safeNextPath(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string') return '/dashboard'
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return '/dashboard'
+  return trimmed
+}
+
 const registerSchema = z.object({
   email: z.string().trim().email('请填写有效的邮箱地址'),
   displayName: z
@@ -68,7 +75,7 @@ export async function registerAction(
   })
 
   await createSession(user.id)
-  redirect('/dashboard')
+  redirect(safeNextPath(formData.get('next')))
 }
 
 export async function loginAction(
@@ -104,7 +111,7 @@ export async function loginAction(
   if (!ok) return invalid
 
   await createSession(user.id)
-  redirect('/dashboard')
+  redirect(safeNextPath(formData.get('next')))
 }
 
 export async function logoutAction(): Promise<void> {

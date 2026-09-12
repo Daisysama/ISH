@@ -6,7 +6,7 @@ import { useActionState } from 'react'
 import { registerAction } from '@/backend/auth/actions'
 import type { FormState } from '@/shared/auth'
 
-export function RegisterForm() {
+export function RegisterForm({ nextPath }: { nextPath?: string }) {
   const [state, action, isPending] = useActionState<FormState, FormData>(
     registerAction,
     {},
@@ -14,8 +14,11 @@ export function RegisterForm() {
 
   return (
     <>
-      <h2>注册</h2>
-      <p className="subtitle">注册完就能直接进来。</p>
+      <div className="auth-form-heading">
+        <span className="eyebrow">加入羊群</span>
+        <h2>先认识一下。</h2>
+        <p>不用把自己写成简历，给同行者一个好记的名字就行。</p>
+      </div>
 
       {state.error && (
         <div className="form-error" role="alert">
@@ -24,6 +27,7 @@ export function RegisterForm() {
       )}
 
       <form action={action}>
+        {nextPath && <input type="hidden" name="next" value={nextPath} />}
         <div className="field">
           <label htmlFor="displayName">显示名称</label>
           <input
@@ -34,8 +38,8 @@ export function RegisterForm() {
             maxLength={50}
             autoComplete="nickname"
             aria-invalid={state.field === 'displayName'}
+            placeholder="别人怎么称呼您？"
           />
-          <span className="hint">别人在 ISH 上看到你的名字，之后可以改。</span>
         </div>
 
         <div className="field">
@@ -47,6 +51,7 @@ export function RegisterForm() {
             required
             autoComplete="email"
             aria-invalid={state.field === 'email'}
+            placeholder="you@example.com"
           />
         </div>
 
@@ -60,17 +65,18 @@ export function RegisterForm() {
             minLength={8}
             autoComplete="new-password"
             aria-invalid={state.field === 'password'}
+            placeholder="至少 8 位"
           />
-          <span className="hint">至少 8 位。</span>
+          <span className="hint">至少 8 位；后续会继续完善账号安全能力。</span>
         </div>
 
-        <button className="btn" type="submit" disabled={isPending}>
-          {isPending ? '注册中…' : '注册并进入'}
+        <button className="button button-primary button-full" type="submit" disabled={isPending}>
+          {isPending ? '正在加入…' : '加入羊群'}
         </button>
       </form>
 
       <p className="auth-switch">
-        已经有账号了？<Link href="/login">去登录</Link>
+        已经是羊群的一员？<Link href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'}>去登录</Link>
       </p>
     </>
   )

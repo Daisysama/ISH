@@ -17,7 +17,7 @@ next-env.d.ts
 
 # 本地 PostgreSQL
 .pgdata/
-.pgdata.log
+.pgdata.log*
 
 # Prisma 生成的客户端代码
 src/generated/

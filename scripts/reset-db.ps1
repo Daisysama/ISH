@@ -1,5 +1,5 @@
 ﻿<#
-    清空数据库，按当前的 schema 重新建表。
+    清空数据库，按当前 migrations 重新建表。
 
     会删掉所有注册过的账号。
 #>
@@ -14,18 +14,19 @@ if ($answer -ne 'yes') {
     exit 0
 }
 
+Sync-LocalDatabaseUrl
 Start-Pg
 
 Write-Step "重建 schema"
 Invoke-Psql $DbName 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' | Out-Null
 Write-Ok "完成"
 
-Write-Step "按 prisma\schema.prisma 建表"
+Write-Step "按 prisma\migrations 建表"
 Push-Location $Root
-npx prisma db push
+npx prisma migrate deploy
 $exit = $LASTEXITCODE
 Pop-Location
-if ($exit -ne 0) { Fail "建表失败。" }
+if ($exit -ne 0) { Fail "migration 部署失败。" }
 
 Write-Host ""
 Write-Host "数据库已重置。" -ForegroundColor Green

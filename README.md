@@ -7,9 +7,9 @@
 以**项目**而不是职位为中心的开放协作平台。不是"公司先存在再招人"，
 而是"目标先存在，人因目标聚集，团队形成，组织甚至可以从项目里长出来"。
 
-**当前公开版本：** `v0.1.0-alpha`。已验证邮箱注册、登录、登出、Session、Dashboard 占位工作台、PostgreSQL 持久化与 HTTPS 公网部署。
+**当前开发版本：** `v0.2.0-alpha`，在 v0.1.x 账户与公网部署基线之上开发。项目从发布、审核、响应到同行管理已接通；已发布内容修改需要再审。公共评论、项目动态、站内消息、网站公告、举报和申诉也已加入。网站管理员由站主按权限授权，重要治理操作留档。
 
-核心业务仍在开发。下一阶段从「咩」与项目主页开始，逐步建立创作者 × 玩家 × ISH 的共创闭环。
+代码已进入开发分支审阅；不要把本地构建成功理解成生产验收完成。公网升级前请先阅读 [`deploy/DEPLOY_PRODUCTION.md`](deploy/DEPLOY_PRODUCTION.md) 并完成多账号权限和迁移演练。
 
 ---
 
@@ -44,7 +44,7 @@ node --version
 这个项目其实用不到它（原因见下面）。其余选项全部默认。
 
 > **不用担心它会跟你已有的数据库打架。**
-> 这个项目会在自己的目录里建一套独立的数据库，跑在 55432 端口，
+> 这个项目会在自己的目录里建一套独立的数据库，跑在 15432 端口，
 > 和你系统里那个（默认 5432）互不干扰，也不改它的任何配置。
 
 装完验证：
@@ -66,6 +66,14 @@ git clone https://github.com/Daisysama/ISH.git
 ```powershell
 cd ISH
 ```
+
+PR #5 审阅期间，这份 v0.2 Alpha 代码仍在开发分支；想在本地验收本轮功能，请在仓库内执行：
+
+```powershell
+git switch feature/v0.2-meow
+```
+
+若 PR 合并后 `main` 已更新，则按当时的仓库状态选择分支。
 
 没装 git 的话，也可以在 GitHub 页面点 `Code` → `Download ZIP`，解压后进到那个文件夹。
 
@@ -123,10 +131,10 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ## 第六步：注册一个账号
 
-打开网站会看到登录页。点「注册一个」，填显示名称、邮箱、密码（至少 8 位），
+访客打开网站会先看到公开项目页。点击登录 / 注册后，点「注册一个」，填显示名称、邮箱、密码（至少 8 位），
 提交后会自动登录进去。
 
-v0.1.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用测试邮箱。公网环境中的账号数据会写入生产 PostgreSQL；不要把真实密码复用于其他网站。
+v0.2.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用测试邮箱。公网环境中的账号数据会写入生产 PostgreSQL；不要把真实密码复用于其他网站。
 
 ---
 
@@ -138,6 +146,7 @@ v0.1.0-alpha 暂未实现邮箱验证码，因此本地开发环境可以使用�
 | 停止（数据库也一起停） | `.\scripts\stop.ps1` |
 | 清空所有账号重来 | `.\scripts\reset-db.ps1` |
 | 看数据库里存了什么 | `npx prisma studio` |
+| 应用本地数据库迁移 | `.\scripts\migrate-local.ps1` |
 
 `start.ps1` 启动后按 `Ctrl+C` 只会停掉网站，数据库还在后台跑着 —— 这不影响什么，
 下次 `start.ps1` 会直接复用。想彻底停干净就用 `stop.ps1`。
@@ -170,7 +179,7 @@ Node.js 没装好，或者装完没重开 PowerShell。
 
 **端口被占用**
 
-网站用 3000，数据库用 55432。如果撞车了，改 `scripts\_common.ps1` 开头的 `$PgPort`，
+网站用 3000，数据库用 15432。如果撞车了，改 `scripts\_common.ps1` 开头的 `$PgPort`，
 网站端口则用 `npm run dev -- -p 3001` 换。
 
 **想彻底重来**
@@ -204,11 +213,12 @@ createdb ish
 
 **3. 建配置文件**
 
-在项目根目录建一个叫 `.env` 的文件（可以复制 `.env.example` 改），内容两行：
+在项目根目录建一个叫 `.env` 的文件（可以复制 `.env.example` 改），至少包含：
 
 ```
 DATABASE_URL="postgresql://用户名:密码@127.0.0.1:5432/ish"
 SESSION_SECRET="一串至少32位的随机字符串"
+SITE_OWNER_USER_ID=""
 ```
 
 `SESSION_SECRET` 用这条命令生成一个：
@@ -217,11 +227,17 @@ SESSION_SECRET="一串至少32位的随机字符串"
 node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 ```
 
-**4. 建表**
+先注册拟作为站主的账号，在“我的画像”展开“站主首次配置所需的内部编号”，将内部 UUID 填入 `.env` 的 `SITE_OWNER_USER_ID` 后重启。公开短 UID 不能用于此项；再由站主在治理页面授予网站管理员所需权限。
+
+**4. 应用数据库 migrations**
+
+新建空数据库：
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 ```
+
+如果是从 v0.1.x 由 `db push` 建立的旧数据库升级，请先阅读 `prisma/README.md`，完成 baseline 后再 deploy。
 
 **5. 启动**
 
@@ -258,25 +274,27 @@ ISH 开发必须遵守两条根本规则：
 
 ```
 src/
-├─ app/                     页面（文件夹结构 = 网址结构）
-│  ├─ page.tsx              /            按登录状态跳转
-│  ├─ login/page.tsx        /login       登录页
-│  ├─ register/page.tsx     /register    注册页
-│  ├─ dashboard/
-│  │  ├─ layout.tsx         顶栏 + 退出登录按钮
-│  │  └─ page.tsx           /dashboard   「正在开发中」占位
-│  ├─ actions/auth.ts       注册/登录/登出的服务端逻辑
+├─ app/                     Next.js 路由入口
+│  ├─ dashboard/            创作者工作台
+│  ├─ meow/new/             「咩」提交页
+│  ├─ projects/             公开项目与项目主页
+│  ├─ admin/moderation/     管理员审核队列
+│  ├─ login/ register/      账号入口
 │  └─ globals.css           全站样式
-├─ components/              可复用的界面组件
-├─ lib/
-│  ├─ db.ts                 数据库连接
-│  ├─ session.ts            会话 cookie 的签发与校验
-│  └─ auth.ts               密码哈希、取当前用户
-└─ middleware.ts            路由守卫：没登录不许进 /dashboard
+├─ frontend/                可复用 UI 与浏览器交互
+├─ backend/                 认证、数据库、项目写入、审核动作
+├─ core/                    与框架解耦的业务规则
+├─ shared/                  跨层共享类型与常量
+└─ middleware.ts            登录态路由守卫
 
-prisma/schema.prisma        数据库表结构定义
-scripts/                    Windows 本地部署脚本
+prisma/
+├─ schema.prisma            当前数据库模型
+└─ migrations/              可审计数据库迁移历史
+
+scripts/                    Windows 本地开发 / migration 脚本
 ```
+
+完整职责见 `docs/architecture/FILE_MAP.md`。
 
 ## 登录是怎么做的
 
@@ -296,11 +314,21 @@ scripts/                    Windows 本地部署脚本
 
 ## 改数据库结构
 
-改 `prisma/schema.prisma`，然后：
+从 v0.2 开始使用 Prisma Migration，不再用 `db push` 修改生产数据库。
+
+开发环境修改 `prisma/schema.prisma` 后：
 
 ```bash
-npx prisma db push
+npx prisma migrate dev --name <migration-name>
 ```
+
+生产环境只执行已经提交、审核过的 migration：
+
+```bash
+npx prisma migrate deploy
+```
+
+从 v0.1.x 旧数据库升级前先阅读 `prisma/README.md`。
 
 ## 注意
 
@@ -313,6 +341,7 @@ npx prisma db push
 | --- | --- |
 | `DATABASE_URL` | 数据库连接串 |
 | `SESSION_SECRET` | 会话 cookie 的签名密钥，至少 32 位 |
+| `SITE_OWNER_USER_ID` | 站主的内部 `users.id` UUID；创建站主账号后填写，管理员由站主在治理页面授权 |
 | `ISH_PG_BIN` | （可选）PostgreSQL 的 bin 目录，脚本找不到时手动指定 |
 
 `.env` 含密钥，**不进版本库**。每个人在自己机器上由 `setup.ps1` 生成一份。
@@ -331,3 +360,17 @@ npx prisma db push
 `fromish.com` 的生产部署说明见：[`deploy/DEPLOY_PRODUCTION.md`](deploy/DEPLOY_PRODUCTION.md)。
 
 首个公开 Alpha 的设计与已知限制见：[`docs/devlog/2026-09-08-v0.1-alpha-public.md`](docs/devlog/2026-09-08-v0.1-alpha-public.md)。
+
+
+# v0.2 Alpha · 项目协作与治理
+
+## 用户流程
+
+1. 注册后发起项目，提交待审版本；站主或获“项目审核”权限的网站管理员审核后公开，退回理由向发起人可见。
+2. 公开项目可响应加入，发起人审查响应者画像并管理同行者。移出成员后保留历史记录，成员可以要求发起人核查或向网站管理员独立申诉。
+3. 已发布项目的修改再次送审；项目动态与公开评论、回复等内容接入规则筛查、举报和人工纠错；相关人员收到站内通知。
+4. 站主在“治理 → 网站管理员”授予独立权限；网站公告的编辑、删除、置顶、恢复及治理操作留管理记录。
+
+## 本轮后续
+
+内部论坛、图片上传与图片审核、邮箱或手机验证码、防机器人滥用、任务与里程碑仍在规划中。路径和边界见 [`docs/product/NEXT_STAGE_MEDIA_AND_TRUST.md`](docs/product/NEXT_STAGE_MEDIA_AND_TRUST.md) 与 [`docs/product/CONTENT_GOVERNANCE_ROADMAP.md`](docs/product/CONTENT_GOVERNANCE_ROADMAP.md)。
