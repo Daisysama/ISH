@@ -29,6 +29,11 @@ try {
     npx prisma migrate deploy
     if ($LASTEXITCODE -ne 0) { Fail "migration 部署失败。" }
     Write-Ok "数据库结构已同步"
+
+    Write-Step "生成 Prisma Client"
+    npm run db:generate
+    if ($LASTEXITCODE -ne 0) { Fail "Prisma Client 生成失败。" }
+    Write-Ok "Prisma Client 已根据当前 schema.prisma 重新生成"
 } finally {
     Pop-Location
 }

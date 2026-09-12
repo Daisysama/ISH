@@ -7,7 +7,9 @@ ISH/
 ├─ docs/
 │  ├─ devlog/                 # 每次实质修改的开发日志
 │  ├─ architecture/           # 架构与文件职责
-│  └─ engineering/            # 工程原则与日志模板
+│  ├─ engineering/            # 工程原则与日志模板
+│  └─ product/                # 产品文案与体验规范
+├─ public/brand/             # Alpha 公共品牌资产
 ├─ prisma/
 │  ├─ schema.prisma           # 当前数据库模型
 │  └─ migrations/             # 可审计 migration 历史
@@ -19,7 +21,8 @@ ISH/
    │  ├─ meow/new/            # 「咩」项目提交入口
    │  ├─ projects/            # 公开项目列表与项目主页
    │  └─ admin/moderation/    # 管理员审核队列
-   ├─ frontend/               # UI 组件与交互
+   ├─ frontend/               # UI 组件、样式与交互
+   │  ├─ styles/              # FromISH Alpha 视觉 token
    │  └─ components/
    │     ├─ auth/
    │     ├─ brand/
@@ -63,3 +66,12 @@ ProjectModerationEvent（追加式留痕）
 - Client Component 只负责表单交互，不持有管理员判定逻辑；
 - 非公开项目的访问控制必须在服务端再次校验，不能只靠前端隐藏链接；
 - 审核状态变化必须同时写入审核事件记录。
+
+## v0.2 产品导航与结构化「咩」
+
+- `src/frontend/components/brand/GlobalHeader.tsx`：普通产品页唯一的全局导航组件，负责稳定导航位置、账号入口与管理员审核入口。
+- `src/core/meow/project.ts`：项目类型、招募角色、平台、阶段等结构化发布规则与服务端校验。
+- `src/frontend/components/projects/MeowForm.tsx`：结构化“咩一声”表单；不再要求创作者先写长篇项目说明。
+- `src/frontend/components/projects/ProjectCard.tsx`：公开项目卡片展示项目类型、当前阶段及招募标签。
+
+群聊信息属于非公开协作信息，默认只向创作者与 ISH 管理员展示，不进入公开项目卡。

@@ -30,17 +30,28 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdProjects  Project[]                  @relation("ProjectCreator")
-  moderationEvents ProjectModerationEvent[]   @relation("ProjectModerator")
+  createdProjects  Project[]                @relation("ProjectCreator")
+  moderationEvents ProjectModerationEvent[] @relation("ProjectModerator")
 
   @@map("users")
 }
 
-/// “咩”从提交到公开的最小状态机。
+/// “咩”从提交到公开的最小治理状态机。
 enum ProjectStatus {
   PENDING
   PUBLISHED
   REJECTED
+}
+
+/// 项目本身的成长阶段，与平台审核状态分离。
+enum ProjectStage {
+  IDEA
+  WRITING
+  CONCEPT
+  PROTOTYPE
+  DEMO
+  DEVELOPING
+  TEAM
 }
 
 /// 审核事件只追加不覆盖，用于保留治理动作历史。
@@ -57,7 +68,19 @@ model Project {
 
   title       String
   summary     String
-  description String @db.Text
+  description String? @db.Text
+
+  /// 面向玩家和同行者展示的结构化信息。
+  stage       ProjectStage @default(IDEA)
+  typeTags    String[]     @default([])
+  seekingTags String[]     @default([])
+  platforms   String[]     @default([])
+  externalUrl String?
+
+  /// 群聊信息默认仅创作者与 ISH 管理员可见，不进入公开卡片。
+  groupType         String?
+  groupContact      String? @db.Text
+  allowIshJoinGroup Boolean @default(false)
 
   status          ProjectStatus @default(PENDING)
   rejectionReason String?       @db.Text

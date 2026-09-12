@@ -4,7 +4,11 @@ import { redirect } from 'next/navigation'
 
 import { getCurrentUser } from '@/backend/auth/current-user'
 import { db } from '@/backend/database/client'
-import { projectSubmissionSchema } from '@/core/meow/project'
+import {
+  mergeTags,
+  parseCustomTags,
+  projectSubmissionSchema,
+} from '@/core/meow/project'
 import type { ProjectFormState } from '@/shared/project'
 
 export async function createProjectAction(
@@ -14,10 +18,30 @@ export async function createProjectAction(
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
+  const typeTags = mergeTags(
+    formData.getAll('typeTags'),
+    parseCustomTags(formData.get('customTypeTags')),
+    8,
+  )
+  const seekingTags = mergeTags(
+    formData.getAll('seekingTags'),
+    parseCustomTags(formData.get('customSeekingTags')),
+    8,
+  )
+  const platforms = mergeTags(formData.getAll('platforms'), [], 5)
+
   const parsed = projectSubmissionSchema.safeParse({
     title: formData.get('title'),
     summary: formData.get('summary'),
-    description: formData.get('description'),
+    description: formData.get('description') ?? '',
+    stage: formData.get('stage'),
+    typeTags,
+    seekingTags,
+    platforms,
+    externalUrl: formData.get('externalUrl') ?? '',
+    groupType: formData.get('groupType') ?? '',
+    groupContact: formData.get('groupContact') ?? '',
+    allowIshJoinGroup: formData.get('allowIshJoinGroup') === 'on',
   })
 
   if (!parsed.success) {
@@ -34,6 +58,14 @@ export async function createProjectAction(
       title: parsed.data.title,
       summary: parsed.data.summary,
       description: parsed.data.description,
+      stage: parsed.data.stage,
+      typeTags: parsed.data.typeTags,
+      seekingTags: parsed.data.seekingTags,
+      platforms: parsed.data.platforms,
+      externalUrl: parsed.data.externalUrl,
+      groupType: parsed.data.groupType,
+      groupContact: parsed.data.groupContact,
+      allowIshJoinGroup: parsed.data.allowIshJoinGroup,
     },
     select: { id: true },
   })

@@ -1,89 +1,54 @@
 import Link from 'next/link'
 
-import { readSession } from '@/backend/auth/session'
+import { getCurrentUser } from '@/backend/auth/current-user'
 import { listPublishedProjects } from '@/backend/projects/queries'
+import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
+import { ProjectCard } from '@/frontend/components/projects/ProjectCard'
 
-export const metadata = { title: '公开项目 · ISH' }
+export const metadata = { title: '羊群广场 · FromISH' }
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
-  const [projects, userId] = await Promise.all([
-    listPublishedProjects(),
-    readSession(),
-  ])
+  const [projects, user] = await Promise.all([listPublishedProjects(), getCurrentUser()])
 
   return (
-    <main className="standalone-shell">
-      <div className="public-nav">
-        <Link className="brand brand-link" href="/projects">
-          <div className="brandmark">ISH</div>
+    <>
+      <GlobalHeader active="plaza" />
+      <main className="site-shell site-shell-with-header">
+        <section className="plaza-hero">
           <div>
-            <p className="brand-name">伊始</p>
-            <span className="brand-tagline">没有牧羊人，只有同行者。</span>
+            <span className="eyebrow">羊群广场 / PROJECT PLAZA</span>
+            <h1>加入羊群，一起追逐太阳！</h1>
+            <p>
+              看看大家最近咩出了什么。这里只展示已经通过审核、正式公开的项目，
+              每一张卡片都对应一个真实的人和真实的想法。
+            </p>
           </div>
-        </Link>
-        <div className="public-nav-actions">
-          {userId ? (
-            <>
-              <Link className="btn btn-ghost" href="/dashboard">
-                工作台
-              </Link>
-              <Link className="btn btn-inline" href="/meow/new">
-                咩一个项目
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link className="btn btn-ghost" href="/login">
-                登录
-              </Link>
-              <Link className="btn btn-inline" href="/register">
-                注册
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="page-head page-head-spaced">
-        <div>
-          <span className="eyebrow">PUBLIC PROJECTS</span>
-          <h1>正在发生的项目</h1>
-          <p>这里只展示已经通过审核、正式公开的“咩”。</p>
-        </div>
-      </div>
-
-      {projects.length === 0 ? (
-        <section className="empty-state">
-          <h2>第一声咩还在路上</h2>
-          <p>公开项目会出现在这里。你也可以成为第一个把想法说出来的人。</p>
-          <Link className="btn btn-inline" href={userId ? '/meow/new' : '/register'}>
-            {userId ? '咩一个项目' : '注册并参与'}
-          </Link>
+          <div className="plaza-sun" aria-hidden="true"><span /></div>
         </section>
-      ) : (
-        <section className="project-grid">
-          {projects.map((project) => (
-            <article className="project-card" key={project.id}>
-              <div className="project-card-meta">
-                <span>{project.creator.displayName}</span>
-                {project.publishedAt && (
-                  <time dateTime={project.publishedAt.toISOString()}>
-                    {project.publishedAt.toLocaleDateString('zh-CN')}
-                  </time>
-                )}
-              </div>
-              <h2>
-                <Link href={`/projects/${project.id}`}>{project.title}</Link>
-              </h2>
-              <p>{project.summary}</p>
-              <Link className="text-link" href={`/projects/${project.id}`}>
-                查看项目 →
-              </Link>
-            </article>
-          ))}
-        </section>
-      )}
-    </main>
+
+        {projects.length === 0 ? (
+          <section className="empty-state empty-state-warm">
+            <span className="eyebrow">QUIET MORNING</span>
+            <h2>第一声咩还在路上。</h2>
+            <p>今天羊群有点安静。要不要成为第一个把想法说出来的人？</p>
+            <Link className="button button-primary" href={user ? '/meow/new' : '/register'}>
+              {user ? '我先咩一个' : '加入羊群'}
+            </Link>
+          </section>
+        ) : (
+          <section className="flock-grid plaza-grid">
+            {projects.map((project, index) => (
+              <ProjectCard index={index} key={project.id} project={project} />
+            ))}
+          </section>
+        )}
+
+        <footer className="site-footer compact-footer">
+          <div><strong>FromISH</strong><span>by ISH 伊始</span></div>
+          <Link href="/">回到首页</Link>
+        </footer>
+      </main>
+    </>
   )
 }

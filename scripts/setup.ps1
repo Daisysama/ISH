@@ -98,14 +98,7 @@ $migrationInvocationOk = $?
 if (-not $migrationInvocationOk -or $LASTEXITCODE -ne 0) {
     Fail "数据库 migration 失败。请检查上方 migrate-local.ps1 的错误输出。"
 }
-Write-Ok "数据库 migration 完成"
-
-Write-Step "生成 Prisma Client"
-npm run db:generate
-if ($LASTEXITCODE -ne 0) {
-    Fail "Prisma Client 生成失败。"
-}
-Write-Ok "Prisma Client 已根据当前 schema.prisma 重新生成"
+Write-Ok "数据库 migration 与 Prisma Client 同步完成"
 
 Write-Host ""
 Write-Host "搭建完成。" -ForegroundColor Green

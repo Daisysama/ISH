@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/backend/auth/current-user'
 import { listProjectsForCreator } from '@/backend/projects/queries'
 import { ProjectStatusBadge } from '@/frontend/components/projects/ProjectStatusBadge'
 
-export const metadata = { title: 'Dashboard · ISH' }
+export const metadata = { title: '我的羊群 · FromISH' }
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
@@ -18,32 +18,39 @@ export default async function DashboardPage() {
     <div className="dashboard-stack">
       <section className="dashboard-hero">
         <div>
-          <span className="eyebrow">YOUR PROJECTS</span>
-          <h1>从一声咩开始</h1>
-          <p>把想做的事说清楚。项目会先进入审核，通过后再公开。</p>
+          <span className="eyebrow">YOUR TRAIL</span>
+          <h1>{user.displayName}，今天想咩点什么？</h1>
+          <p>这里记录你发出的每一声咩。审核状态、公开结果和退回原因都会留在原地。</p>
         </div>
-        <Link className="btn btn-inline" href="/meow/new">
-          咩一个项目
+        <Link className="button button-primary" href="/meow/new">
+          咩一个想法 <span aria-hidden="true">→</span>
         </Link>
       </section>
 
       <section>
-        <div className="section-head">
-          <h2>我的项目</h2>
-          <Link className="text-link" href="/projects">
-            查看公开项目
+        <div className="section-title-row dashboard-section-title">
+          <div>
+            <span className="eyebrow">我的项目</span>
+            <h2>每一声咩，都有它自己的路。</h2>
+          </div>
+          <Link className="story-link" href="/projects">
+            去羊群广场 <span aria-hidden="true">→</span>
           </Link>
         </div>
 
         {projects.length === 0 ? (
-          <div className="empty-state compact-empty">
-            <h3>你还没有发出第一声咩</h3>
-            <p>项目建立以后，会在这里显示审核和发布状态。</p>
+          <div className="empty-state compact-empty empty-state-warm">
+            <h3>你的第一声咩还没发出来。</h3>
+            <p>不用写商业计划书。先把想做什么说清楚，就已经是一个开始。</p>
+            <Link className="button button-primary button-compact" href="/meow/new">
+              去咩一个
+            </Link>
           </div>
         ) : (
           <div className="dashboard-project-list">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <article className="dashboard-project" key={project.id}>
+                <div className={`dashboard-project-orb dashboard-project-orb-${index % 3}`} aria-hidden="true" />
                 <div className="dashboard-project-main">
                   <div className="dashboard-project-title-row">
                     <h3>
@@ -58,8 +65,8 @@ export default async function DashboardPage() {
                     </p>
                   )}
                 </div>
-                <Link className="text-link" href={`/projects/${project.id}`}>
-                  查看 →
+                <Link className="story-link" href={`/projects/${project.id}`}>
+                  查看 <span aria-hidden="true">→</span>
                 </Link>
               </article>
             ))}

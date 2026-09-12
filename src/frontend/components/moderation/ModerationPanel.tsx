@@ -32,7 +32,7 @@ export function ModerationPanel({ projectId }: { projectId: string }) {
         />
         {approveState.error && <p className="inline-error">{approveState.error}</p>}
         {approveState.success && <p className="inline-success">{approveState.success}</p>}
-        <button className="btn" type="submit" disabled={approving || rejecting}>
+        <button className="button button-primary button-full" type="submit" disabled={approving || rejecting}>
           {approving ? '发布中…' : '审核通过并发布'}
         </button>
       </form>
@@ -52,7 +52,7 @@ export function ModerationPanel({ projectId }: { projectId: string }) {
         {rejectState.error && <p className="inline-error">{rejectState.error}</p>}
         {rejectState.success && <p className="inline-success">{rejectState.success}</p>}
         <button
-          className="btn btn-danger"
+          className="button button-danger button-full"
           type="submit"
           disabled={approving || rejecting}
         >

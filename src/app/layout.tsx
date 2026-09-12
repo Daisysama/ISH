@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 
+import '@/frontend/styles/tokens.css'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ISH · 伊始',
-  description: '有个想法？找人一起把它做出来。',
+  title: 'FromISH · 伊始',
+  description: '有点子？上伊始！找乐子？也上伊始！',
 }
 
 export default function RootLayout({
