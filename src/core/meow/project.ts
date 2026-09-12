@@ -11,33 +11,49 @@ export const PROJECT_LIMITS = {
   summaryMax: 100,
   descriptionMax: 2000,
   moderationNoteMax: 500,
-  tagMax: 12,
-  typeTagMaxCount: 8,
-  seekingTagMaxCount: 8,
-  customTagMaxCount: 3,
+  tagMax: 16,
+  typeTagMaxCount: 16,
+  seekingTagMaxCount: 12,
+  customTagMaxCount: 8,
   platformMaxCount: 5,
   groupContactMax: 300,
   profileTagMaxCount: 20,
 } as const
 
-export const PROJECT_TYPE_OPTIONS = [
-  '独立游戏',
-  '视觉小说 / AVG',
-  'RPG',
-  '动作',
-  '冒险',
-  '解谜',
-  '模拟经营',
-  '策略',
-  '卡牌',
-  '音乐游戏',
-  '恐怖',
-  '休闲',
-  '多人',
-  '叙事',
-  '实验作品',
-  'Galgame',
+export const PROJECT_TAG_GROUPS = [
+  {
+    label: '类型与玩法',
+    options: [
+      '独立游戏', '视觉小说 / AVG', 'Galgame', 'RPG', 'JRPG', 'CRPG', 'ARPG', 'SRPG',
+      '动作', 'FPS', 'TPS', '策略', 'RTS', '回合制', '即时制', '卡牌', '卡牌构筑',
+      '塔防', '模拟经营', 'Roguelike', '类银河战士恶魔城', '魂Like', '开放世界', '沙盒',
+      '生存', '建造', '采集', '养成', '解谜', '冒险', '探索', '音乐游戏', '竞速', '体育',
+      '派对', '休闲', '放置', '剧情驱动', '强叙事', '群像', '多结局', '时间循环', '高难度',
+      '实验作品',
+    ],
+  },
+  {
+    label: '游玩方式',
+    options: ['单人', '多人', '本地合作', '在线合作', 'PVE', 'PVP', 'PvPvE', 'MMO', '异步多人'],
+  },
+  {
+    label: '题材与风格',
+    options: [
+      '科幻', '奇幻', '校园', '历史', '悬疑', '推理', '恐怖', '治愈', '喜剧', '黑暗', '日常',
+      '末日', '赛博朋克', '太空', '军事', '二次元', '二游 / 二次元手游', '国风', '古风', '武侠',
+      '仙侠', '像素', '2D', '3D', 'Live2D', '手绘', '动漫风', '写实', '低多边形', '复古',
+    ],
+  },
+  {
+    label: '关系与受众',
+    options: [
+      '一般向', 'BG', '百合', 'BL', '恋爱', '友情', '亲情', '后宫', '逆后宫', '男性向',
+      '女性向', '乙女', '无恋爱主线', '全年龄',
+    ],
+  },
 ] as const
+
+export const PROJECT_TYPE_OPTIONS = PROJECT_TAG_GROUPS.flatMap((group) => group.options)
 
 export const SEEKING_ROLE_OPTIONS = [
   '程序',
@@ -198,6 +214,7 @@ export const projectSubmissionSchema = z.object({
 })
 
 export const projectIdSchema = z.string().uuid('项目 ID 无效')
+export const projectRevisionIdSchema = z.string().uuid('修改版本 ID 无效')
 
 export const moderationNoteSchema = z
   .string()

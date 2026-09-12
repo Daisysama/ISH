@@ -14,6 +14,8 @@ if (-not (Test-Path $EnvFile)) {
     Fail "缺少 .env。先跑一次 scripts\setup.ps1。"
 }
 
+Sync-LocalDatabaseUrl
+
 Write-Step "启动数据库"
 Start-Pg
 

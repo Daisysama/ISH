@@ -1,33 +1,31 @@
 import { z } from 'zod'
 
-import { PROJECT_TYPE_OPTIONS, SEEKING_ROLE_OPTIONS } from '@/core/meow/project'
+import { PROJECT_TAG_GROUPS, SEEKING_ROLE_OPTIONS } from '@/core/meow/project'
 
 export const PROFILE_LIMITS = {
-  tagMax: 24,
-  tagMaxCount: 20,
+  tagMax: 16,
+  tagMaxCount: 60,
+  customTagMaxCount: 12,
   bioMax: 300,
   experienceMax: 1500,
   portfolioUrlMax: 500,
 } as const
 
-export const PROFILE_INTEREST_OPTIONS = [
-  ...PROJECT_TYPE_OPTIONS,
-  '科幻',
-  '奇幻',
-  '百合',
-  '悬疑',
-  '治愈',
-  '剧情向',
+export const PROFILE_INTEREST_GROUPS = PROJECT_TAG_GROUPS
+export const PROFILE_INTEREST_OPTIONS = PROFILE_INTEREST_GROUPS.flatMap((group) => group.options)
+
+export const PROFILE_SKILL_GROUPS = [
+  {
+    label: '创作与制作',
+    options: SEEKING_ROLE_OPTIONS,
+  },
+  {
+    label: '工具与技术',
+    options: ['Unity', 'Unreal Engine', 'Godot', "Ren'Py", 'Live2D', 'Blender', 'C#', 'C++', 'JavaScript / TypeScript', 'Python'],
+  },
 ] as const
 
-export const PROFILE_SKILL_OPTIONS = [
-  ...SEEKING_ROLE_OPTIONS,
-  'Unity',
-  'Unreal Engine',
-  'Godot',
-  "Ren'Py",
-  'Live2D',
-] as const
+export const PROFILE_SKILL_OPTIONS = PROFILE_SKILL_GROUPS.flatMap((group) => group.options)
 
 const optionalUrl = z
   .string()
@@ -40,10 +38,9 @@ function dedupe(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
-
 export function parseProfileCustomTags(raw: FormDataEntryValue | null): string[] {
   if (typeof raw !== 'string') return []
-  return dedupe(raw.split(/[,，、;；\n]+/)).slice(0, 5)
+  return dedupe(raw.split(/[,，、;；\n]+/)).slice(0, PROFILE_LIMITS.customTagMaxCount)
 }
 
 export function mergeProfileTags(selected: string[], custom: string[]): string[] {
@@ -73,6 +70,19 @@ export const userProfileSchema = z.object({
     .max(PROFILE_LIMITS.experienceMax, `项目经历最多 ${PROFILE_LIMITS.experienceMax} 个字`)
     .transform((value) => (value === '' ? undefined : value)),
   portfolioUrl: optionalUrl,
+  publicProfileEnabled: z.boolean(),
+  askInterestedDetails: z.boolean(),
+  askNotInterestedDetails: z.boolean(),
+}).superRefine((value, ctx) => {
+  const disliked = new Set(value.dislikeTags)
+  const conflict = value.likeTags.find((tag) => disliked.has(tag))
+  if (conflict) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['likeTags'],
+      message: `“${conflict}”不能同时放在喜欢和不喜欢里`,
+    })
+  }
 })
 
 export type UserProfileInput = z.infer<typeof userProfileSchema>

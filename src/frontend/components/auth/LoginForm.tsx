@@ -6,7 +6,7 @@ import { useActionState } from 'react'
 import { loginAction } from '@/backend/auth/actions'
 import type { FormState } from '@/shared/auth'
 
-export function LoginForm({ initialEmail }: { initialEmail?: string }) {
+export function LoginForm({ initialEmail, nextPath }: { initialEmail?: string; nextPath?: string }) {
   const [state, action, isPending] = useActionState<FormState, FormData>(
     loginAction,
     {},
@@ -27,6 +27,7 @@ export function LoginForm({ initialEmail }: { initialEmail?: string }) {
       )}
 
       <form action={action}>
+        {nextPath && <input type="hidden" name="next" value={nextPath} />}
         <div className="field">
           <label htmlFor="email">邮箱</label>
           <input
@@ -60,7 +61,7 @@ export function LoginForm({ initialEmail }: { initialEmail?: string }) {
       </form>
 
       <p className="auth-switch">
-        还没有账号？<Link href="/register">加入羊群</Link>
+        还没有账号？<Link href={nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : '/register'}>加入羊群</Link>
       </p>
     </>
   )

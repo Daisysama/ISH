@@ -37,7 +37,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  return NextResponse.next()
+  // 根布局使用服务端校验后的访问路径执行全站停用，不信任浏览器伪造的头。
+  const headers = new Headers(request.headers)
+  headers.set('x-ish-request-path', pathname)
+  return NextResponse.next({ request: { headers } })
 }
 
 export const config = {

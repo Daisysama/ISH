@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { readSession } from '@/backend/auth/session'
+import { db } from '@/backend/database/client'
 import { listPublishedProjects } from '@/backend/projects/queries'
 import { GlobalHeader } from '@/frontend/components/brand/GlobalHeader'
 import { ProjectCard } from '@/frontend/components/projects/ProjectCard'
@@ -8,7 +9,12 @@ import { ProjectCard } from '@/frontend/components/projects/ProjectCard'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const [userId, projects] = await Promise.all([readSession(), listPublishedProjects({ sort: 'newest' })])
+  const userId = await readSession()
+  const [blockedUsers, latestAnnouncement] = await Promise.all([
+    userId ? db.userBlock.findMany({ where: { blockerId: userId, active: true }, select: { blockedId: true } }) : Promise.resolve([]),
+    db.siteAnnouncement.findFirst({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, select: { title: true, publishedAt: true } }),
+  ])
+  const projects = await listPublishedProjects({ sort: 'published', direction: 'desc' }, null, [], blockedUsers.map(item => item.blockedId))
   const featured = projects.slice(0, 3)
 
   return (
@@ -25,7 +31,7 @@ export default async function HomePage() {
             </h1>
             <p>
               创作者在这里把想法咩出来，玩家在这里提前遇见还没长大的作品。
-              一声小小的咩，也许就是某个更大明天的伊始。
+              一声小小的咩，也许就是下一部神作的伊始。
             </p>
             <div className="hero-actions">
               <Link className="button button-primary" href={userId ? '/meow/new' : '/register'}>
@@ -41,9 +47,13 @@ export default async function HomePage() {
             <div className="hero-sun" />
             <div className="hero-hill hero-hill-back" />
             <div className="hero-hill hero-hill-front" />
-            <p className="hero-handwriting">A small light.<br />A larger tomorrow.</p>
           </div>
         </section>
+
+        {latestAnnouncement && <aside className="panel home-announcement"><span className="eyebrow">ISH 公告</span>
+          <strong>{latestAnnouncement.title}</strong><span>{latestAnnouncement.publishedAt?.toLocaleDateString('zh-CN')}</span>
+          <Link className="story-link" href="/announcements">查看公告 →</Link>
+        </aside>}
 
         <section className="path-grid" aria-label="FromISH 可以做什么">
           <Link className="path-card" href={userId ? '/meow/new' : '/register'}>
@@ -58,7 +68,7 @@ export default async function HomePage() {
             <span className="path-index">02</span>
             <div>
               <strong>去羊群里逛逛</strong>
-              <p>也许有人正在做你一直想玩的那个东西。</p>
+              <p>也许有人正在做您一直想玩的那个东西。</p>
             </div>
             <span className="path-arrow" aria-hidden="true">↗</span>
           </Link>
@@ -91,7 +101,7 @@ export default async function HomePage() {
           {featured.length > 0 ? (
             <div className="flock-grid flock-grid-home">
               {featured.map((project, index) => (
-                <ProjectCard index={index} key={project.id} project={project} />
+                <ProjectCard index={index} key={project.id} project={project} returnSource="home" />
               ))}
             </div>
           ) : (

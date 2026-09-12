@@ -1,21 +1,23 @@
 import { db } from '@/backend/database/client'
 
 export type ProjectDiscoveryFilters = {
-  stage?: string
-  purpose?: string
-  typeTag?: string
-  sort?: 'recommended' | 'newest' | 'oldest'
+  stages?: string[]
+  purposes?: string[]
+  typeTags?: string[]
+  sort?: 'recommended' | 'published' | 'interested' | 'favorites'
+  direction?: 'desc' | 'asc'
 }
 
 export type DiscoveryProfile = {
   skillTags: string[]
   likeTags: string[]
   dislikeTags: string[]
+  inferredTags?: { tag: string; score: number }[]
 }
 
-function hasAny(haystack: string[], needles: string[]) {
+function overlapCount(haystack: string[], needles: string[]) {
   const set = new Set(haystack)
-  return needles.some((value) => set.has(value))
+  return needles.reduce((count, value) => count + (set.has(value) ? 1 : 0), 0)
 }
 
 function recommendationScore(
@@ -30,9 +32,17 @@ function recommendationScore(
   if (!profile) return project.publishedAt?.getTime() ?? 0
 
   let score = 0
-  if (hasAny(project.typeTags, profile.likeTags)) score += 8
-  if (hasAny(project.typeTags, profile.dislikeTags)) score -= 10
-  if (hasAny(project.seekingTags, profile.skillTags)) score += 6
+  const explicitLikeMatches = overlapCount(project.typeTags, profile.likeTags)
+  const explicitDislikeMatches = overlapCount(project.typeTags, profile.dislikeTags)
+  const skillMatches = overlapCount(project.seekingTags, profile.skillTags)
+
+  // “猜您喜欢”优先看明确喜欢标签的重合度；明确雷点的负权重更高。
+  score += explicitLikeMatches * 8
+  score -= explicitDislikeMatches * 10
+  score += skillMatches * 5
+  for (const signal of profile.inferredTags ?? []) {
+    if (project.typeTags.includes(signal.tag)) score += Math.max(-3, Math.min(3, signal.score))
+  }
   if (project.audience === 'COLLABORATORS' && profile.skillTags.length > 0) score += 2
   if (project.audience === 'PLAYERS' && profile.likeTags.length > 0) score += 2
   if (project.audience === 'EVERYONE') score += 1
@@ -49,9 +59,12 @@ function recommendationScore(
 export async function listPublishedProjects(
   filters: ProjectDiscoveryFilters = {},
   profile: DiscoveryProfile | null = null,
+  hiddenProjectIds: string[] = [],
+  blockedUserIds: string[] = [],
 ) {
   const projects = await db.project.findMany({
-    where: { status: 'PUBLISHED' },
+    where: { status: 'PUBLISHED', ...(hiddenProjectIds.length ? { id: { notIn: hiddenProjectIds } } : {}),
+      ...(blockedUserIds.length ? { creatorId: { notIn: blockedUserIds } } : {}) },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     select: {
       id: true,
@@ -65,28 +78,51 @@ export async function listPublishedProjects(
       platforms: true,
       publishedAt: true,
       creator: {
-        select: { displayName: true },
+        select: { id: true, uid: true, displayName: true },
+      },
+      _count: {
+        select: {
+          userPreferences: { where: { kind: 'INTERESTED' } },
+          favoritedByUsers: true,
+        },
       },
     },
   })
 
   const filtered = projects.filter((project) => {
-    if (filters.stage && project.stage !== filters.stage) return false
-    if (filters.purpose && project.purpose !== filters.purpose) return false
-    if (filters.typeTag && !project.typeTags.includes(filters.typeTag)) return false
+    // OR within each filter group, AND across groups.
+    if (filters.stages?.length && !filters.stages.includes(project.stage)) return false
+    if (filters.purposes?.length && !filters.purposes.includes(project.purpose)) return false
+    if (filters.typeTags?.length && !filters.typeTags.some((tag) => project.typeTags.includes(tag))) return false
     return true
   })
 
-  const sort = filters.sort ?? (profile ? 'recommended' : 'newest')
+  const sort = filters.sort ?? (profile ? 'recommended' : 'published')
+  const direction = filters.direction ?? 'desc'
+  const factor = direction === 'asc' ? 1 : -1
 
   return filtered.sort((a, b) => {
-    if (sort === 'oldest') {
-      return (a.publishedAt?.getTime() ?? 0) - (b.publishedAt?.getTime() ?? 0)
-    }
+    let aValue = 0
+    let bValue = 0
+
     if (sort === 'recommended') {
-      return recommendationScore(b, profile) - recommendationScore(a, profile)
+      aValue = recommendationScore(a, profile)
+      bValue = recommendationScore(b, profile)
+    } else if (sort === 'interested') {
+      aValue = a._count.userPreferences
+      bValue = b._count.userPreferences
+    } else if (sort === 'favorites') {
+      aValue = a._count.favoritedByUsers
+      bValue = b._count.favoritedByUsers
+    } else {
+      aValue = a.publishedAt?.getTime() ?? 0
+      bValue = b.publishedAt?.getTime() ?? 0
     }
-    return (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)
+
+    if (aValue !== bValue) return (aValue - bValue) * factor
+
+    // 主排序相同时，用发布时间做稳定 tie-breaker。
+    return ((a.publishedAt?.getTime() ?? 0) - (b.publishedAt?.getTime() ?? 0)) * -1
   })
 }
 
@@ -107,6 +143,29 @@ export function listProjectsForCreator(creatorId: string) {
       rejectionReason: true,
       createdAt: true,
       publishedAt: true,
+      version: true,
+      revisions: {
+        where: { status: { in: ['PENDING', 'REJECTED'] } },
+        orderBy: [{ version: 'desc' }, { submittedAt: 'desc' }],
+        take: 1,
+        select: {
+          id: true,
+          version: true,
+          status: true,
+          rejectionReason: true,
+          submittedAt: true,
+        },
+      },
+      memberships: {
+        where: { status: 'ACTIVE' },
+        orderBy: { joinedAt: 'asc' },
+        select: {
+          id: true,
+          roles: true,
+          joinedAt: true,
+          user: { select: { id: true, displayName: true } },
+        },
+      },
     },
   })
 }
@@ -118,18 +177,37 @@ export function getProjectById(id: string) {
       creator: {
         select: {
           id: true,
+          uid: true,
           displayName: true,
         },
       },
+      updates: {
+        where: { status: 'PUBLISHED' },
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        take: 3,
+        select: { id: true, title: true, body: true, authorId: true, authorNameSnapshot: true, publishedAt: true },
+      },
       moderationEvents: {
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 8,
         select: {
           id: true,
           action: true,
+          reviewType: true,
           note: true,
           createdAt: true,
+          revision: { select: { version: true } },
         },
+      },
+      revisions: {
+        where: { status: { in: ['PENDING', 'REJECTED'] } },
+        orderBy: [{ version: 'desc' }, { submittedAt: 'desc' }],
+        take: 1,
+        select: { id: true, version: true, status: true, rejectionReason: true },
+      },
+      memberships: {
+        where: { status: 'ACTIVE' },
+        select: { id: true },
       },
     },
   })

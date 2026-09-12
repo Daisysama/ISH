@@ -1,31 +1,37 @@
 import { getCurrentUser } from '@/backend/auth/current-user'
-import { normalizeEmail } from '@/backend/auth/password'
+import { db } from '@/backend/database/client'
+import { SITE_PERMISSIONS, type SitePermission } from '@/core/governance/permissions'
+import { z } from 'zod'
 
-/**
- * v0.2 Alpha 的最小管理员授权。
- *
- * 当前只有极少数管理员，因此先通过服务端环境变量 ADMIN_EMAILS 管理，
- * 不在客户端暴露，也不把“管理员”硬编码进代码仓库。
- *
- * 示例：ADMIN_EMAILS="alice@example.com,bob@example.com"
- *
- * 后续成员规模扩大后，应替换为数据库 RBAC / 权限表。
- */
-function getAdminEmails(): Set<string> {
-  return new Set(
-    (process.env.ADMIN_EMAILS ?? '')
-      .split(',')
-      .map((email) => normalizeEmail(email))
-      .filter(Boolean),
-  )
+/** 根身份取自现有 users.id，不接受可变邮箱或显示名作为授权凭据。 */
+export function getSiteOwnerUserId(): string | null {
+  const value = process.env.SITE_OWNER_USER_ID?.trim()
+  const parsed = z.string().uuid().safeParse(value)
+  return parsed.success ? parsed.data : null
 }
 
-export function isAdminEmail(email: string): boolean {
-  return getAdminEmails().has(normalizeEmail(email))
+export function isSiteOwner(userId: string): boolean {
+  return getSiteOwnerUserId() === userId
 }
 
-export async function getCurrentAdmin() {
+export async function getSiteAccess(userId: string) {
+  if (isSiteOwner(userId)) return { role: 'OWNER' as const, permissions: SITE_PERMISSIONS }
+  const suspended = await db.userSanction.findFirst({ where: { targetId: userId, status: 'ACTIVE', scope: { in: ['ACCOUNT', 'SITE'] },
+    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true } })
+  if (suspended) return { role: 'USER' as const, permissions: [] as string[] }
+  const admin = await db.siteAdmin.findUnique({ where: { userId }, select: { active: true, permissions: true } })
+  if (!admin?.active) return { role: 'USER' as const, permissions: [] as string[] }
+  return { role: 'ADMIN' as const, permissions: admin.permissions }
+}
+
+export async function hasSitePermission(userId: string, permission: SitePermission) {
+  const access = await getSiteAccess(userId)
+  return access.permissions.includes(permission)
+}
+
+/** 默认仅授予项目审核；申诉审查与治理日志需分别显式授权。 */
+export async function getCurrentAdmin(permission: SitePermission = 'PROJECT_REVIEW') {
   const user = await getCurrentUser()
-  if (!user || !isAdminEmail(user.email)) return null
+  if (!user || !(await hasSitePermission(user.id, permission))) return null
   return user
 }

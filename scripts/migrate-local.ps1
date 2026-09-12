@@ -11,6 +11,7 @@
 
 . (Join-Path $PSScriptRoot '_common.ps1')
 
+Sync-LocalDatabaseUrl
 Start-Pg
 
 $hasUsers = Invoke-Psql $DbName "SELECT CASE WHEN to_regclass('public.users') IS NULL THEN '0' ELSE '1' END"

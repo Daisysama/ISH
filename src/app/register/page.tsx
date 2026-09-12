@@ -5,7 +5,11 @@ import { BrandHeader } from '@/frontend/components/brand/BrandHeader'
 
 export const metadata = { title: '加入羊群 · FromISH', robots: { index: false, follow: false } }
 
-export default function RegisterPage() {
+type RegisterPageProps = { searchParams: Promise<{ next?: string | string[] }> }
+
+export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+  const params = await searchParams
+  const next = Array.isArray(params.next) ? params.next[0] : params.next
   return (
     <main className="auth-stage">
       <section className="auth-scene auth-scene-register">
@@ -26,7 +30,7 @@ export default function RegisterPage() {
       <section className="auth-panel">
         <div className="auth-card">
           <BrandHeader />
-          <RegisterForm />
+          <RegisterForm nextPath={next} />
         </div>
       </section>
     </main>

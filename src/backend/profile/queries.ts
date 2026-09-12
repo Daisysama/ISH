@@ -5,6 +5,7 @@ export function getUserProfile(userId: string) {
     where: { id: userId },
     select: {
       id: true,
+      uid: true,
       displayName: true,
       email: true,
       skillTags: true,
@@ -13,6 +14,10 @@ export function getUserProfile(userId: string) {
       profileBio: true,
       experienceText: true,
       portfolioUrl: true,
+      publicProfileEnabled: true,
+      suppressInterestedPrompt: true,
+      suppressNotInterestedPrompt: true,
+      tagSignals: { where: { score: { not: 0 } }, orderBy: [{ score: 'desc' }, { updatedAt: 'desc' }], select: { tag: true, score: true } },
     },
   })
 }

@@ -2,6 +2,7 @@ export const PROJECT_STATUS_LABELS = {
   PENDING: '待审核',
   PUBLISHED: '已发布',
   REJECTED: '未通过',
+  HIDDEN: '经网站核查暂时下架',
 } as const
 
 export const PROJECT_STAGE_LABELS = {
@@ -57,9 +58,30 @@ export type ProjectFormField =
   | 'groupContact'
   | 'groupAccessMode'
 
+export type ProjectFormValues = {
+  title: string
+  summary: string
+  description: string
+  stage: ProjectStageValue
+  purpose: ProjectPurposeValue
+  audience: ProjectAudienceValue
+  typeTags: string[]
+  customTypeTags: string[]
+  seekingTags: string[]
+  customSeekingTags: string[]
+  platforms: string[]
+  externalUrl: string
+  groupType: string
+  groupContact: string
+  groupAccessMode: GroupAccessModeValue
+  allowIshJoinGroup: boolean
+}
+
 export type ProjectFormState = {
   error?: string
   field?: ProjectFormField
+  values?: ProjectFormValues
+  attempt?: string
 }
 
 export type ModerationFormState = {

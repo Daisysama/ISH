@@ -79,3 +79,37 @@ ProjectModerationEvent（追加式留痕）
 ### 发现与用户画像
 
 用户画像属于产品核心输入但保持自愿填写。纯校验规则放 `src/core/profile/`，数据库读写放 `src/backend/profile/`，交互组件放 `src/frontend/components/profile/`。公开发现与 SEO 必须使用相同的“什么是真正公开内容”边界，避免权限和搜索索引互相冲突。
+
+### Rich Tags 与渐进式偏好
+
+官方项目标签统一定义在 `src/core/meow/project.ts`，发布表单与用户画像共享同一套标签语义；用户长尾标签通过 `CustomTagInput` 补充。私人项目反应和系统弱偏好属于 `backend/profile`，不与未来公开点赞 / 评论混合。
+
+群聊开放方式继续由项目方明确选择：公开群可以直接展示；保密群保持隐藏；申请制将在同行申请阶段真正解锁。
+
+### B.2a-2 项目响应
+
+“感兴趣”继续属于私人推荐信号；“咩！（响应）”属于明确协作动作，两者必须分离。
+
+- `src/core/responses/`：响应开放条件、响应角色选项与纯业务限制；
+- `src/backend/responses/`：响应提交、撤回、创作者接受 / 婉拒及查询；
+- `src/frontend/components/responses/`：项目详情响应交互与创作者决策 UI；
+- `src/app/dashboard/responses/`：用户回应中心；
+- `ProjectResponse`：一名用户对一个项目最多保留一条响应记录，通过状态机支持等待、接受、婉拒与撤回。
+
+申请制群聊只在 `ProjectResponse.status=APPROVED` 时向对应响应者解锁；公开群聊不受影响，私有群聊不会因为接受响应而自动公开。
+
+### B.2a-2.1 项目成员关系
+
+“响应”和“成员”从此是两个对象：
+
+```text
+ProjectResponse
+  ↓ 创作者接受
+ProjectMembership(status=ACTIVE, permissions=[])
+```
+
+- `ProjectResponse` 保存申请历史；
+- `ProjectMembership` 保存当前真实项目关系；
+- 新同行者默认只读，编辑能力以后由发起人显式授予，不做时间到期自动升级；
+- 申请制群聊以 ACTIVE membership 为最终访问依据；
+- 用户自己的项目工作台同时展示“我发起的”和“我同行的”。

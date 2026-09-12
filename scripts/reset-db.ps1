@@ -14,6 +14,7 @@ if ($answer -ne 'yes') {
     exit 0
 }
 
+Sync-LocalDatabaseUrl
 Start-Pg
 
 Write-Step "重建 schema"

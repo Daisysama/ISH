@@ -6,7 +6,7 @@ import { useActionState } from 'react'
 import { registerAction } from '@/backend/auth/actions'
 import type { FormState } from '@/shared/auth'
 
-export function RegisterForm() {
+export function RegisterForm({ nextPath }: { nextPath?: string }) {
   const [state, action, isPending] = useActionState<FormState, FormData>(
     registerAction,
     {},
@@ -27,6 +27,7 @@ export function RegisterForm() {
       )}
 
       <form action={action}>
+        {nextPath && <input type="hidden" name="next" value={nextPath} />}
         <div className="field">
           <label htmlFor="displayName">显示名称</label>
           <input
@@ -37,7 +38,7 @@ export function RegisterForm() {
             maxLength={50}
             autoComplete="nickname"
             aria-invalid={state.field === 'displayName'}
-            placeholder="别人怎么称呼你？"
+            placeholder="别人怎么称呼您？"
           />
         </div>
 
@@ -75,7 +76,7 @@ export function RegisterForm() {
       </form>
 
       <p className="auth-switch">
-        已经是羊群的一员？<Link href="/login">去登录</Link>
+        已经是羊群的一员？<Link href={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'}>去登录</Link>
       </p>
     </>
   )
